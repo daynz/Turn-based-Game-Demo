@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: json
+  m_EditorClassIdentifier: 
+  m_GroupName: json
+  m_GUID: 9d2265eedb85a9a4f84ae4d72bff4973
+  m_SerializeEntries:
+  - m_GUID: ce798f60915a4e30a7d113e42f7a37a0
+    m_Address: Assets/Addressables/Local/Config/CharacterData/Characters.json
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Json
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f5fe9d95c415446086e8db1f5f115151
+    m_Address: Assets/Addressables/Local/Config/CharacterData/Monsters.json
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Json
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 7eda43612344a8749b31546981d0fb50, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 36df2bc72a4c3ff488e106d5bfbb18b4, type: 2}
+    - {fileID: 11400000, guid: 7a84dd06eac39c5438db07e1b0d2ccc3, type: 2}
