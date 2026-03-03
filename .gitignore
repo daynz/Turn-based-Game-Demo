@@ -33,6 +33,7 @@
 
 # Visual Studio cache directory
 .vs/
+.idea/
 
 # Gradle cache directory
 .gradle/
@@ -97,3 +98,22 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# 资源文件 全部不上传 GitHub
+*.png
+*.jpg
+*.jpeg
+*.psd
+*.fbx
+*.obj
+*.wav
+*.mp3
+*.ogg
+*.mp4
+*.tga
+*.bmp
+*.tif
+*.exr
+*.ttf
+*.otf
+*.prefab
