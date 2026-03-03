@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package GameData;
+
+option csharp_namespace = "GameData";
+
+message PlayerData
+{
+  string player_name = 1;
+  int32 level = 2;
+  float experience = 3;
+  repeated Item inventory = 4; // 玩家背包
+}
+
+message Item
+{
+  int32 item_id = 1;
+  int32 count = 2;
+}
