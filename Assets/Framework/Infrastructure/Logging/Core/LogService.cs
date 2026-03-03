@@ -35,6 +35,7 @@ namespace BH.Framework.Infrastructure.Logging.Core
         }
 
         public int Priority => priority;
+        public string Name => GetType().Name;
 
         public bool IsInitialized { get; private set; }
 

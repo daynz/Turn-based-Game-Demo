@@ -12,6 +12,8 @@ namespace BH.Framework.Infrastructure.DI.Interfaces
         /// </summary>
         int Priority { get; }
         
+        string Name { get; }
+        
         bool IsInitialized { get; }
 
         /// <summary>

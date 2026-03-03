@@ -18,7 +18,7 @@ namespace BH.Framework.Infrastructure.Events.Core
     {
         #region 字段与属性
 
-        private string Name => GetType().Name;
+        public string Name => GetType().Name;
         private EventConfig _config;
         private EventDebugger _debugger;
         private EventRecorder _recorder;

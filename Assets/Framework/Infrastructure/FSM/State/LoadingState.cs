@@ -7,7 +7,7 @@ namespace BH.Framework.Infrastructure.FSM.State
 {
     public class LoadingState : StateBase
     {
-        public string Name => GetType().Name;
+        public override string Name => GetType().Name;
         [Inject] private LogService _logService;
 
         public override void Enter(IState prevState, object param)
