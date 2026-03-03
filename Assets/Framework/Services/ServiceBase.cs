@@ -10,7 +10,7 @@ namespace BH.Framework.Services
 {
     public abstract class ServiceBase : IService
     {
-        public string Name => GetType().Name;
+        public virtual string Name => GetType().Name;
         [field: Inject] protected LogService LogService { get; set; } = null;
         
         [field: Inject] protected EventService EventService { get; set; } = null;

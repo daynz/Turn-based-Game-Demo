@@ -21,7 +21,7 @@ namespace BH.Framework.Infrastructure.Events.Core
     {
         #region 私有字段
 
-        private string Name => GetType().Name;
+        public string Name => GetType().Name;
         private readonly ConcurrentDictionary<EventType, EventChannel> _channels = new();
         private const EventType DefaultChannel = EventType.SystemEvent;
 

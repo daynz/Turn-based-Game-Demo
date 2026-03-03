@@ -33,54 +33,54 @@ namespace BH.GameSystems.BattleSystem.Systems.UnitSystem.Characters.Data
         {
             try
             {
-                var textAsset = await ResourceService.Instance.LoadPersistentAssetAsync<TextAsset>("Characters");
-                if (textAsset)
-                {
-                    // if (string.IsNullOrEmpty(relativePath))
-                    // {
-                    //     LogManager.Instance.Warning($"[CharacterDatabase] {relativePath} 路径不存在，跳过加载。");
-                    //     return;
-                    // }
-
-                    //var fullPath = Path.Combine(Application.streamingAssetsPath, relativePath);
-                    //var json = File.ReadAllText(fullPath);
-                    //var items = JsonConvert.DeserializeObject<List<CharacterData>>(json);
-                    // if (items == null)
-                    // {
-                    //     //LogManager.Instance.Warning($"[CharacterDatabase] 无法解析JSON文件：{fullPath}");
-                    //     return;
-                    // }
-
-                    // foreach (var data in items)
-                    // {
-                    //     units.Add(data);
-                    // }
-
-                    //base.LoadUnitDatabaseFromJson(relativePath);
-
-                    //LogManager.Instance.Info($"[CharacterDatabase] 成功从 {fullPath} 加载数据，共 {items.Count} 个。");
-
-                    var json = textAsset.text;
-                    try
-                    {
-                        var items = JsonConvert.DeserializeObject<List<CharacterData>>(json);
-                        if (items == null)
-                        {
-                            LOGService.Warning($"无法解析JSON文件", Name);
-                            return;
-                        }
-
-                        foreach (var data in items)
-                        {
-                            units.Add(data);
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine(e);
-                        throw;
-                    }
-                }
+                // var textAsset = await ResourceService.Instance.LoadPersistentAssetAsync<TextAsset>("Characters");
+                // if (textAsset)
+                // {
+                //     // if (string.IsNullOrEmpty(relativePath))
+                //     // {
+                //     //     LogManager.Instance.Warning($"[CharacterDatabase] {relativePath} 路径不存在，跳过加载。");
+                //     //     return;
+                //     // }
+                //
+                //     //var fullPath = Path.Combine(Application.streamingAssetsPath, relativePath);
+                //     //var json = File.ReadAllText(fullPath);
+                //     //var items = JsonConvert.DeserializeObject<List<CharacterData>>(json);
+                //     // if (items == null)
+                //     // {
+                //     //     //LogManager.Instance.Warning($"[CharacterDatabase] 无法解析JSON文件：{fullPath}");
+                //     //     return;
+                //     // }
+                //
+                //     // foreach (var data in items)
+                //     // {
+                //     //     units.Add(data);
+                //     // }
+                //
+                //     //base.LoadUnitDatabaseFromJson(relativePath);
+                //
+                //     //LogManager.Instance.Info($"[CharacterDatabase] 成功从 {fullPath} 加载数据，共 {items.Count} 个。");
+                //
+                //     var json = textAsset.text;
+                //     try
+                //     {
+                //         var items = JsonConvert.DeserializeObject<List<CharacterData>>(json);
+                //         if (items == null)
+                //         {
+                //             LOGService.Warning($"无法解析JSON文件", Name);
+                //             return;
+                //         }
+                //
+                //         foreach (var data in items)
+                //         {
+                //             units.Add(data);
+                //         }
+                //     }
+                //     catch (Exception e)
+                //     {
+                //         Console.WriteLine(e);
+                //         throw;
+                //     }
+                // }
             }
             catch (FileNotFoundException)
             {

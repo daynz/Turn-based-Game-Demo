@@ -14,19 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_GroupName: model
   m_GUID: 4245811af866e904a88665861231460d
-  m_SerializeEntries:
-  - m_GUID: 039681ff273d8e14a95fa7bc519e6f5d
-    m_Address: Assets/Art/Models/Character/Trailblazer.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Model
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 2d975f96dba6cf442bc2fbcc32658ae1
-    m_Address: Assets/Art/Models/Character/Seele.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Model
-    FlaggedDuringContentUpdateRestriction: 0
+  m_SerializeEntries: []
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 7eda43612344a8749b31546981d0fb50, type: 2}
   m_SchemaSet:

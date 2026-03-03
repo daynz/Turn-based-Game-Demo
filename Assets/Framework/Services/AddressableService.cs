@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using BH.Framework.Enums;
+using BH.Framework.Infrastructure.DI.Attributes;
+using BH.Framework.Infrastructure.DI.Interfaces;
+using BH.Framework.Infrastructure.Logging.Core;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
@@ -11,13 +15,32 @@ namespace BH.Framework.Services
     /// <summary>
     /// Addressables 系统封装类。
     /// </summary>
-    public class AddressableService
+    [AutoRegisterService]
+    public class AddressableService : IService
     {
         /// <summary>
         /// 存储所有已加载资源的异步操作句柄 (AsyncOperationHandle)<br/>
         /// Key: 资源地址 (Address)，Value: 对应的 AsyncOperationHandle。
         /// </summary>
         private readonly Dictionary<string, AsyncOperationHandle> _loadedHandles = new();
+
+        public string Name => GetType().Name;
+        [field: Inject] private LogService LogService { get; set; }
+
+        public int Priority => (int)PriorityOrder.AddressableService;
+        public bool IsInitialized { get; private set; }
+
+        public Task InitializeAsync()
+        {
+            IsInitialized = true;
+            return Task.CompletedTask;
+        }
+
+        public void Shutdown()
+        {
+            ReleaseAllAssets();
+            _loadedHandles.Clear();
+        }
 
         /// <summary>
         /// 异步加载指定地址的资源。
@@ -29,7 +52,7 @@ namespace BH.Framework.Services
         {
             if (string.IsNullOrEmpty(address))
             {
-                Debug.LogError($"[AddressableService] 加载失败: 地址为空或null。");
+                LogService.Error($"[AddressableService] 加载失败: 地址为空或null。", Name);
                 return null;
             }
 
@@ -38,7 +61,7 @@ namespace BH.Framework.Services
                 // 检查资源是否已被加载（通过检查内部句柄缓存）
                 if (_loadedHandles.ContainsKey(address))
                 {
-                    Debug.LogWarning($"[AddressableService] 资源 '{address}' 已经被加载，正在从缓存中获取。");
+                    LogService.Warning($"[AddressableService] 资源 '{address}' 已经被加载，正在从缓存中获取。", Name);
                     // 注意：这里直接从句柄缓存取结果，假设资源未被外部释放。
                     // 在实际复杂场景下，可能需要更严谨的检查。
                     if (_loadedHandles[address].Result is T result)
@@ -47,9 +70,9 @@ namespace BH.Framework.Services
                     }
                     else
                     {
-                        Debug.LogError(
+                        LogService.Error(
                             $"[AddressableService] 缓存中的资源 '{address}' 类型不匹配。期望 {typeof(T)}," +
-                            $" 实际 {(_loadedHandles[address].Result?.GetType() ?? typeof(object))}");
+                            $" 实际 {(_loadedHandles[address].Result?.GetType() ?? typeof(object))}", Name);
                         return null;
                     }
                 }
@@ -62,19 +85,20 @@ namespace BH.Framework.Services
                 {
                     // 加载成功，将句柄存储起来以便后续释放
                     _loadedHandles.Add(address, handle);
-                    Debug.Log($"[AddressableService] 成功加载资源: {address} (Type: {typeof(T)})");
+                    LogService.Info($"[AddressableService] 成功加载资源: {address} (Type: {typeof(T)})", Name);
                     return resultAsset;
                 }
                 else
                 {
-                    Debug.LogError(
-                        $"[AddressableService] 加载资源失败: {address}. 错误详情: {handle.Status}, {handle.OperationException}");
+                    LogService.Error(
+                        $"[AddressableService] 加载资源失败: {address}. 错误详情: {handle.Status}, {handle.OperationException}",
+                        Name);
                     return null;
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[AddressableService] 加载资源时发生异常: {address}\n{ex.Message}\n{ex.StackTrace}");
+                LogService.Error($"[AddressableService] 加载资源时发生异常: {address}\n{ex.Message}\n{ex.StackTrace}", Name);
                 return null;
             }
         }
@@ -95,12 +119,12 @@ namespace BH.Framework.Services
             var prefab = await LoadAssetAsync<GameObject>(address);
             if (!prefab)
             {
-                Debug.LogError($"[AddressableService] 无法实例化预制体，因为加载失败: {address}");
+                LogService.Error($"[AddressableService] 无法实例化预制体，因为加载失败: {address}", Name);
                 return null;
             }
 
             var instance = Object.Instantiate(prefab, parent, instantiateInWorldSpace);
-            Debug.Log($"[AddressableService] 成功实例化预制体: {address}");
+            LogService.Info($"[AddressableService] 成功实例化预制体: {address}", Name);
             return instance;
         }
 
@@ -114,7 +138,7 @@ namespace BH.Framework.Services
         {
             if (string.IsNullOrEmpty(address))
             {
-                Debug.LogError("[AddressableService] 释放失败: 地址为空或null。");
+                LogService.Error("[AddressableService] 释放失败: 地址为空或null。", Name);
                 return;
             }
 
@@ -122,11 +146,11 @@ namespace BH.Framework.Services
             {
                 Addressables.Release(handle);
                 _loadedHandles.Remove(address);
-                Debug.Log($"[AddressableService] 已释放资源: {address}");
+                LogService.Info($"[AddressableService] 已释放资源: {address}", Name);
             }
             else
             {
-                Debug.LogWarning($"[AddressableService] 尝试释放未加载的资源: {address}");
+                LogService.Warning($"[AddressableService] 尝试释放未加载的资源: {address}", Name);
             }
         }
 
@@ -140,11 +164,11 @@ namespace BH.Framework.Services
             foreach (var pair in _loadedHandles)
             {
                 Addressables.Release(pair.Value);
-                Debug.Log($"[AddressableService] 已释放资源: {pair.Key}");
+                LogService.Info($"[AddressableService] 已释放资源: {pair.Key}", Name);
             }
 
             _loadedHandles.Clear();
-            Debug.Log("[AddressableService] 已清空所有资源引用。");
+            LogService.Info("[AddressableService] 已清空所有资源引用。", Name);
         }
 
         /// <summary>

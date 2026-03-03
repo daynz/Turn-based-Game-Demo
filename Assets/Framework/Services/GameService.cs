@@ -14,7 +14,7 @@ namespace BH.Framework.Services
     [AutoRegisterService]
     public sealed class GameService : ServiceBase
     {
-        public string Name => GetType().Name;
+        public override string Name => GetType().Name;
         private GameStateMachine _gameStateMachine;
         [SerializeField] private int priority = (int)PriorityOrder.Game;
         private GameEventHandler _eventHandler;

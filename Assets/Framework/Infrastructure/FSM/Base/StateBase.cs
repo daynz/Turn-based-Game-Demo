@@ -10,7 +10,7 @@ namespace BH.Framework.Infrastructure.FSM.Base
     /// </summary>
     public abstract class StateBase : IState
     {
-        public string Name => GetType().Name;
+        public virtual string Name => GetType().Name;
         protected string StateName => GetType().Name;
 
         [Inject] private readonly EventService _eventManager;

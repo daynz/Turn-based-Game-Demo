@@ -24,7 +24,7 @@ namespace BH.GameSystems.BattleSystem.Service
         {
             try
             {
-                _resourceService = ResourceService.Instance;
+                //_resourceService = ResourceService.Instance;
                 var isSuccess = await LoadAllConfigsAsync();
                 _logService.Info($"战斗配置加载完成", Name);
             }
