@@ -7,7 +7,9 @@ using BH.Framework.Infrastructure.DI.Attributes;
 using BH.Framework.Infrastructure.DI.Interfaces;
 using BH.Framework.Infrastructure.Logging.Interfaces;
 using BH.Framework.Infrastructure.Logging.Output;
+using BH.Framework.Interfaces;
 using UnityEngine;
+using IInitializable = Zenject.IInitializable;
 using LogType = BH.Framework.Enums.LogType;
 
 namespace BH.Framework.Infrastructure.Logging.Core
@@ -16,17 +18,16 @@ namespace BH.Framework.Infrastructure.Logging.Core
     /// 全局日志管理器
     /// </summary>
     [Serializable]
-    [AutoRegisterService]
-    public class LogService : IService, ILogService
+    public class LogService : ILogService, IInitializable
     {
         private ConcurrentQueue<LogEntry> _logQueue;
         private List<LogEntry> _logList = new();
         private static readonly object Lock = new();
-        private readonly List<ILogOutput> _outputs = new();
-        [SerializeField] private bool enableLogService;
+        [SerializeField] private bool enableLogService = true;
         [SerializeField] private int maxCapacity = 5000;
         [SerializeField] private LogLevel minDisplayLevel = LogLevel.Info;
-        [SerializeField] private int priority = (int)PriorityOrder.Logger;
+
+        private List<ILogOutput> _outputs;
 
         public int MaxCapacity
         {
@@ -34,26 +35,36 @@ namespace BH.Framework.Infrastructure.Logging.Core
             set => maxCapacity = value;
         }
 
-        public int Priority => priority;
-        public string Name => GetType().Name;
-
         public bool IsInitialized { get; private set; }
 
-        public Task InitializeAsync()
+        //public int Priority => priority;
+        //public string Name => GetType().Name;
+
+
+        // public Task InitializeAsync()
+        // {
+        //     Init();
+        //     return Task.CompletedTask;
+        // }
+
+        public LogService(IEnumerable<ILogOutput> outputs)
         {
-            Init();
-            return Task.CompletedTask;
+            _outputs = new List<ILogOutput>(outputs);
         }
 
-        public void Init()
+        public void Initialize()
         {
+            if (IsInitialized)
+                return;
+
             IsInitialized = true;
             _logQueue = new ConcurrentQueue<LogEntry>();
             _logList = new List<LogEntry>(maxCapacity);
 
+            UnityEngine.Debug.Log("LogService 初始化完成");
             // 默认添加控制台输出器
-            _outputs.Add(new LogConsoleOutput());
-            _outputs.Add(new LogFileOutput());
+            // _outputs.Add(new LogConsoleOutput());
+            // _outputs.Add(new LogFileOutput());
         }
 
         /// <summary>
@@ -62,7 +73,6 @@ namespace BH.Framework.Infrastructure.Logging.Core
         public void Log(LogEntry entry)
         {
             if (entry == null || !IsInitialized) return;
-
             if (_logQueue == null)
             {
                 UnityEngine.Debug.LogWarning($"[LogService] 日志系统尚未初始化，消息被忽略: {entry.Message}");
@@ -102,7 +112,7 @@ namespace BH.Framework.Infrastructure.Logging.Core
         }
 
         // ----- 便捷方法（链式调用）-----
-        public void Debug(string message,string owner , LogType type = LogType.General)
+        public void Debug(string message, string owner, LogType type = LogType.General)
             => Log(new LogBuilder()
                 .SetLevel(LogLevel.Debug)
                 .SetCategory(type)
@@ -111,7 +121,7 @@ namespace BH.Framework.Infrastructure.Logging.Core
                 .Build()
             );
 
-        public void Info(string message,string owner, LogType type = LogType.General)
+        public void Info(string message, string owner, LogType type = LogType.General)
             => Log(new LogBuilder()
                 .SetLevel(LogLevel.Info)
                 .SetCategory(type)
@@ -119,7 +129,7 @@ namespace BH.Framework.Infrastructure.Logging.Core
                 .SetOwner(owner)
                 .Build());
 
-        public void Warning(string message, string owner,LogType type = LogType.General)
+        public void Warning(string message, string owner, LogType type = LogType.General)
             => Log(new LogBuilder()
                 .SetLevel(LogLevel.Warning)
                 .SetCategory(type)
@@ -127,7 +137,7 @@ namespace BH.Framework.Infrastructure.Logging.Core
                 .SetOwner(owner)
                 .Build());
 
-        public void Error(string message,string owner, LogType type = LogType.General, string stackTrace = null)
+        public void Error(string message, string owner, LogType type = LogType.General, string stackTrace = null)
             => Log(new LogBuilder()
                 .SetLevel(LogLevel.Error)
                 .SetCategory(type)
@@ -137,7 +147,7 @@ namespace BH.Framework.Infrastructure.Logging.Core
                 .Build()
             );
 
-        public void Critical(string message, string owner,LogType type = LogType.General, string stackTrace = null)
+        public void Critical(string message, string owner, LogType type = LogType.General, string stackTrace = null)
             => Log(new LogBuilder()
                 .SetLevel(LogLevel.Critical)
                 .SetCategory(type)
@@ -147,7 +157,7 @@ namespace BH.Framework.Infrastructure.Logging.Core
                 .Build()
             );
 
-        public void EventLog(string message,string owner, bool enable = true, LogType type = LogType.Event)
+        public void EventLog(string message, string owner, bool enable = true, LogType type = LogType.Event)
         {
             if (!enable) return;
             Log(new LogBuilder()
@@ -159,7 +169,7 @@ namespace BH.Framework.Infrastructure.Logging.Core
             );
         }
 
-        public void EventLogError(string message,string owner, bool enable = true, LogType type = LogType.Event,
+        public void EventLogError(string message, string owner, bool enable = true, LogType type = LogType.Event,
             string stackTrace = null)
         {
             if (!enable) return;
@@ -173,14 +183,13 @@ namespace BH.Framework.Infrastructure.Logging.Core
             );
         }
 
-        // ----- 配置方法 -----
-        public void AddOutput(ILogOutput output)
-        {
-            if (!IsInitialized) return;
-            if (!_outputs.Contains(output)) _outputs.Add(output);
-        }
+        // public void AddOutput(ILogOutput output)
+        // {
+        //     if (!IsInitialized) return;
+        //     if (!_outputs.Contains(output)) _outputs.Add(output);
+        // }
 
-        public void RemoveOutput(ILogOutput output) => _outputs.Remove(output);
+        //public void RemoveOutput(ILogOutput output) => _outputs.Remove(output);
 
         /// <summary>
         /// 获取所有日志（用于导出）
