@@ -29,6 +29,7 @@ namespace BH.Framework.Infrastructure.Logging.Installers
             }
 
             Container.BindInterfacesAndSelfTo<LogService>().AsSingle();
+            Container.Bind<ILogService>().To<LogService>().AsSingle();
         }
     }
 }

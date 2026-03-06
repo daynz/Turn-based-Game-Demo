@@ -12,6 +12,7 @@ using UnityEngine;
 
 namespace BH.Framework.Managers
 {
+    [Obsolete]
     public class GameBootstrap : MonoBehaviour
     {
         private string Name => GetType().Name;

@@ -3,11 +3,10 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using BH.Framework.Enums;
-using BH.Framework.Infrastructure.DI.Attributes;
-using BH.Framework.Infrastructure.DI.Interfaces;
 using BH.Framework.Infrastructure.Events.Interfaces;
 using BH.Framework.Infrastructure.Logging.Core;
 using UnityEngine;
+using Zenject;
 using EventType = BH.Framework.Enums.EventType;
 
 namespace BH.Framework.Infrastructure.Events.Core
@@ -16,19 +15,16 @@ namespace BH.Framework.Infrastructure.Events.Core
     /// 事件总线，负责管理通道和事件路由
     /// </summary>
     [Serializable]
-    [AutoRegisterService]
-    public class EventBus : IService, IDisposable
+    public class EventBus : IEventBus, IInitializable, IDisposable
     {
         #region 私有字段
 
-        public string Name => GetType().Name;
         private readonly ConcurrentDictionary<EventType, EventChannel> _channels = new();
         private const EventType DefaultChannel = EventType.SystemEvent;
 
-        public int Priority { get; set; } = (int)PriorityOrder.EventBus;
-        [field: Inject] private LogService LOGService { get; set; } = null;
+        [Inject] private LogService LOGService { get; set; }
 
-        //todo: config加载
+        // todo: config加载
 
         #endregion
 
@@ -36,7 +32,7 @@ namespace BH.Framework.Infrastructure.Events.Core
 
         public bool IsInitialized { get; private set; } = true;
 
-        public Task InitializeAsync()
+        public void Initialize()
         {
             // 默认初始化
             var allEventTypes = Enum.GetValues(typeof(EventType));
@@ -44,13 +40,6 @@ namespace BH.Framework.Infrastructure.Events.Core
             {
                 CreateChannel((EventType)type);
             }
-
-            return Task.CompletedTask;
-        }
-
-        public void Shutdown()
-        {
-            _channels.Clear();
         }
 
         public IEnumerable<EventChannel> GetAllChannels() => _channels.Values;
@@ -110,7 +99,7 @@ namespace BH.Framework.Infrastructure.Events.Core
             var channel = GetChannel(eventType);
             if (channel == null)
             {
-                LOGService.EventLog($"通道不存在: {eventType}", Name);
+                LOGService.EventLog($"通道不存在: {eventType}");
                 return;
             }
 
@@ -121,7 +110,7 @@ namespace BH.Framework.Infrastructure.Events.Core
             }
             else
             {
-                LOGService.EventLog($"发送事件{typeof(T).Name}", Name);
+                LOGService.EventLog($"发送事件{typeof(T).Name}");
             }
         }
 
@@ -243,7 +232,7 @@ namespace BH.Framework.Infrastructure.Events.Core
                 ch.Dispose();
             _channels.Clear();
             IsInitialized = false;
-            LOGService.EventLog("[EventBus] 已释放", Name);
+            LOGService.EventLog("[EventBus] 已释放");
         }
 
         #endregion

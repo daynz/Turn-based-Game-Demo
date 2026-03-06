@@ -1,15 +1,12 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Threading.Tasks;
+using System.Runtime.CompilerServices;
 using BH.Framework.Enums;
-using BH.Framework.Infrastructure.DI.Attributes;
-using BH.Framework.Infrastructure.DI.Interfaces;
 using BH.Framework.Infrastructure.Logging.Interfaces;
 using BH.Framework.Infrastructure.Logging.Output;
-using BH.Framework.Interfaces;
 using UnityEngine;
-using IInitializable = Zenject.IInitializable;
+using Zenject;
 using LogType = BH.Framework.Enums.LogType;
 
 namespace BH.Framework.Infrastructure.Logging.Core
@@ -18,11 +15,13 @@ namespace BH.Framework.Infrastructure.Logging.Core
     /// 全局日志管理器
     /// </summary>
     [Serializable]
-    public class LogService : ILogService, IInitializable
+    public class LogService : ILogService
     {
         private ConcurrentQueue<LogEntry> _logQueue;
-        private List<LogEntry> _logList = new();
+        private List<LogEntry> _logList;
         private static readonly object Lock = new();
+        [SerializeField] private LogConfig config;
+        [SerializeField] private LogConfig defaultConfig = new LogConfig();
         [SerializeField] private bool enableLogService = true;
         [SerializeField] private int maxCapacity = 5000;
         [SerializeField] private LogLevel minDisplayLevel = LogLevel.Info;
@@ -35,36 +34,17 @@ namespace BH.Framework.Infrastructure.Logging.Core
             set => maxCapacity = value;
         }
 
-        public bool IsInitialized { get; private set; }
-
-        //public int Priority => priority;
-        //public string Name => GetType().Name;
-
-
-        // public Task InitializeAsync()
-        // {
-        //     Init();
-        //     return Task.CompletedTask;
-        // }
-
         public LogService(IEnumerable<ILogOutput> outputs)
         {
-            _outputs = new List<ILogOutput>(outputs);
+            _outputs = new List<ILogOutput>(outputs) { new LogConsoleOutput() };
+            _logQueue = new ConcurrentQueue<LogEntry>();
+            _logList = new List<LogEntry>(maxCapacity);
+            config = defaultConfig;
         }
 
         public void Initialize()
         {
-            if (IsInitialized)
-                return;
-
-            IsInitialized = true;
-            _logQueue = new ConcurrentQueue<LogEntry>();
-            _logList = new List<LogEntry>(maxCapacity);
-
             UnityEngine.Debug.Log("LogService 初始化完成");
-            // 默认添加控制台输出器
-            // _outputs.Add(new LogConsoleOutput());
-            // _outputs.Add(new LogFileOutput());
         }
 
         /// <summary>
@@ -72,7 +52,7 @@ namespace BH.Framework.Infrastructure.Logging.Core
         /// </summary>
         public void Log(LogEntry entry)
         {
-            if (entry == null || !IsInitialized) return;
+            if (entry == null) return;
             if (_logQueue == null)
             {
                 UnityEngine.Debug.LogWarning($"[LogService] 日志系统尚未初始化，消息被忽略: {entry.Message}");
@@ -112,64 +92,73 @@ namespace BH.Framework.Infrastructure.Logging.Core
         }
 
         // ----- 便捷方法（链式调用）-----
-        public void Debug(string message, string owner, LogType type = LogType.General)
+        public void Debug(string message, string owner = "", [CallerMemberName] string callerMemberName = "",
+            LogType type = LogType.General)
             => Log(new LogBuilder()
                 .SetLevel(LogLevel.Debug)
                 .SetCategory(type)
                 .SetMessage(message)
-                .SetOwner(owner)
+                .SetOwner(string.IsNullOrEmpty(owner) ? callerMemberName : owner)
                 .Build()
             );
 
-        public void Info(string message, string owner, LogType type = LogType.General)
+        public void Info(string message, string owner = "", [CallerMemberName] string callerMemberName = "",
+            LogType type = LogType.General)
             => Log(new LogBuilder()
                 .SetLevel(LogLevel.Info)
                 .SetCategory(type)
                 .SetMessage(message)
-                .SetOwner(owner)
+                .SetOwner(string.IsNullOrEmpty(owner) ? callerMemberName : owner)
                 .Build());
 
-        public void Warning(string message, string owner, LogType type = LogType.General)
+        public void Warning(string message, string owner = "", [CallerMemberName] string callerMemberName = "",
+            LogType type = LogType.General)
             => Log(new LogBuilder()
                 .SetLevel(LogLevel.Warning)
                 .SetCategory(type)
                 .SetMessage(message)
-                .SetOwner(owner)
+                .SetOwner(string.IsNullOrEmpty(owner) ? callerMemberName : owner)
                 .Build());
 
-        public void Error(string message, string owner, LogType type = LogType.General, string stackTrace = null)
+        public void Error(string message, string owner = "", [CallerMemberName] string callerMemberName = "",
+            LogType type = LogType.General, string stackTrace = null)
             => Log(new LogBuilder()
                 .SetLevel(LogLevel.Error)
                 .SetCategory(type)
                 .SetMessage(message)
                 .SetStackTrace(stackTrace ?? Environment.StackTrace)
-                .SetOwner(owner)
+                .SetOwner(string.IsNullOrEmpty(owner) ? callerMemberName : owner)
                 .Build()
             );
 
-        public void Critical(string message, string owner, LogType type = LogType.General, string stackTrace = null)
+        public void Critical(string message, string owner = "", [CallerMemberName] string callerMemberName = "",
+            LogType type = LogType.General, string stackTrace = null)
             => Log(new LogBuilder()
                 .SetLevel(LogLevel.Critical)
                 .SetCategory(type)
                 .SetMessage(message)
                 .SetStackTrace(stackTrace ?? Environment.StackTrace)
-                .SetOwner(owner)
+                .SetOwner(string.IsNullOrEmpty(owner) ? callerMemberName : owner)
                 .Build()
             );
 
-        public void EventLog(string message, string owner, bool enable = true, LogType type = LogType.Event)
+        public void EventLog(string message, bool enable = true, string owner = "",
+            [CallerMemberName] string callerMemberName = "",
+            LogType type = LogType.Event)
         {
             if (!enable) return;
             Log(new LogBuilder()
                 .SetLevel(LogLevel.Event)
                 .SetCategory(type)
                 .SetMessage(message)
-                .SetOwner(owner)
+                .SetOwner(string.IsNullOrEmpty(owner) ? callerMemberName : owner)
                 .Build()
             );
         }
 
-        public void EventLogError(string message, string owner, bool enable = true, LogType type = LogType.Event,
+        public void EventLogError(string message, bool enable = true, string owner = "",
+            [CallerMemberName] string callerMemberName = "",
+            LogType type = LogType.Event,
             string stackTrace = null)
         {
             if (!enable) return;
@@ -177,26 +166,17 @@ namespace BH.Framework.Infrastructure.Logging.Core
                 .SetLevel(LogLevel.Error)
                 .SetCategory(type)
                 .SetMessage(message)
-                .SetOwner(owner)
+                .SetOwner(string.IsNullOrEmpty(owner) ? callerMemberName : owner)
                 .SetStackTrace(stackTrace ?? Environment.StackTrace)
                 .Build()
             );
         }
-
-        // public void AddOutput(ILogOutput output)
-        // {
-        //     if (!IsInitialized) return;
-        //     if (!_outputs.Contains(output)) _outputs.Add(output);
-        // }
-
-        //public void RemoveOutput(ILogOutput output) => _outputs.Remove(output);
 
         /// <summary>
         /// 获取所有日志（用于导出）
         /// </summary>
         public IReadOnlyList<LogEntry> GetAllLogs()
         {
-            if (!IsInitialized) return null;
             lock (_logList)
             {
                 return _logList.AsReadOnly();
@@ -208,7 +188,6 @@ namespace BH.Framework.Infrastructure.Logging.Core
         /// </summary>
         public void Clear()
         {
-            if (!IsInitialized) return;
             lock (_logList)
             {
                 _logQueue?.Clear();
@@ -216,16 +195,24 @@ namespace BH.Framework.Infrastructure.Logging.Core
             }
         }
 
-        [ContextMenu("导出到文件")]
         public void ExportLogToFile()
         {
-            if (!IsInitialized) return;
             // TODO: 实现导出功能，可使用 LogExporter.ExportToHtml
         }
 
-        public void Shutdown()
+        public void UpdateConfig(LogConfig newConfig)
         {
-            if (!IsInitialized) return;
+            if (newConfig == null)
+            {
+                Debug("尝试用空值更新LogConfig");
+                return;
+            }
+
+            config = newConfig;
+        }
+
+        public void Dispose()
+        {
             Clear();
         }
     }

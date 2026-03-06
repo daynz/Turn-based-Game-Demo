@@ -1,9 +1,11 @@
+using System;
+
 namespace BH.Framework.Infrastructure.Events.Tools
 {
     /// <summary>
     /// 事件调试器：监听所有通道的事件，统计和记录
     /// </summary>
-    public class EventDebugger // : IDisposable
+    public class EventDebugger  : IDisposable
     {
         // #region 字段
         //
@@ -151,13 +153,13 @@ namespace BH.Framework.Infrastructure.Events.Tools
         //
         // #region IDisposable 实现
         //
-        // public void Dispose()
-        // {
-        //     StopDebugging();
-        //     _eventCounts.Clear();
-        //     _eventLog.Clear();
-        //     _processedEventIds.Clear();
-        // }
+        public void Dispose()
+        {
+            // StopDebugging();
+            // _eventCounts.Clear();
+            // _eventLog.Clear();
+            // _processedEventIds.Clear();
+        }
         //
         // #endregion
         //

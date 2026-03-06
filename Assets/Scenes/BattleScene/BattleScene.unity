@@ -148,14 +148,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 06fee396a79e4bfab8bef9d1d3fa67b0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentTurn:
-    unit: {fileID: 0}
-    turnNumber: 0
-    isCompleted: 0
-  turnHistory: []
-  isTurnInProgress: 0
-  stateMachine:
-    currentPhase: 0
 --- !u!4 &160939981
 Transform:
   m_ObjectHideFlags: 0
@@ -502,55 +494,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b78f3200a38d48a29eb318720dd44eed, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  modules:
-  - typeName: 
-    instance: {fileID: 1464784274}
-    priority: 0
-    isInitialized: 0
-  - typeName: 
-    instance: {fileID: 756543763}
-    priority: 0
-    isInitialized: 0
-  - typeName: 
-    instance: {fileID: 2125616857}
-    priority: 0
-    isInitialized: 0
-  - typeName: 
-    instance: {fileID: 1734857903}
-    priority: 0
-    isInitialized: 0
-  - typeName: 
-    instance: {fileID: 1748144339}
-    priority: 0
-    isInitialized: 0
-  - typeName: 
-    instance: {fileID: 2017342275}
-    priority: 0
-    isInitialized: 0
-  - typeName: 
-    instance: {fileID: 160939980}
-    priority: 0
-    isInitialized: 0
-  - typeName: 
-    instance: {fileID: 1737747739}
-    priority: 0
-    isInitialized: 0
-  - typeName: 
-    instance: {fileID: 1397651808}
-    priority: 0
-    isInitialized: 0
-  - typeName: 
-    instance: {fileID: 447787083}
-    priority: 0
-    isInitialized: 0
-  - typeName: 
-    instance: {fileID: 2080972260}
-    priority: 0
-    isInitialized: 0
-  - typeName: 
-    instance: {fileID: 1282199460}
-    priority: 0
-    isInitialized: 0
+  modules: []
 --- !u!4 &611410736
 Transform:
   m_ObjectHideFlags: 0
@@ -575,7 +519,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 756543764}
-  - component: {fileID: 756543763}
   m_Layer: 0
   m_Name: EventManager
   m_TagString: Untagged
@@ -583,20 +526,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &756543763
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 756543762}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a6742bc809b84736919206fe54ec98ca, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  config: {fileID: 11400000, guid: 6f73ccb4c634e604bbdf547fd2d18382, type: 2}
-  enableEventSystem: 0
 --- !u!4 &756543764
 Transform:
   m_ObjectHideFlags: 0
@@ -690,17 +619,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4aa450585047404596969502ce7dafde, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  unitManager: {fileID: 1748144339}
-  actionQueue: {fileID: 2017342275}
-  turnManager: {fileID: 160939980}
-  damageCalculator: {fileID: 1397651808}
-  buffManager: {fileID: 1737747739}
-  skillManager: {fileID: 447787083}
-  skillPointManager: {fileID: 2080972260}
-  currentState: 0
-  battleConfig: {fileID: 11400000, guid: b15e0feae58b0d042b63ee6ea5eb1068, type: 2}
-  actionFaction: 0
-  isBattleActive: 0
 --- !u!4 &1282199461
 Transform:
   m_ObjectHideFlags: 0
@@ -725,7 +643,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1397651809}
-  - component: {fileID: 1397651808}
+  - component: {fileID: 1397651810}
   m_Layer: 0
   m_Name: DamageCalculator
   m_TagString: Untagged
@@ -733,18 +651,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1397651808
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1397651807}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3f67c2b6268e4ee29c226bac1c35aa79, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!4 &1397651809
 Transform:
   m_ObjectHideFlags: 0
@@ -760,6 +666,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1397651810
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1397651807}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee0af126bc0443fd9a56d1d16a719a2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1464784273
 GameObject:
   m_ObjectHideFlags: 0
@@ -769,7 +687,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1464784275}
-  - component: {fileID: 1464784274}
   m_Layer: 0
   m_Name: LogManager
   m_TagString: Untagged
@@ -777,21 +694,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1464784274
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1464784273}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5bf7a83f7c8845768884eace5c423294, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  EnableLogManager: 0
-  maxCapacity: 5000
-  minDisplayLevel: 1
 --- !u!4 &1464784275
 Transform:
   m_ObjectHideFlags: 0
@@ -816,7 +718,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1734857904}
-  - component: {fileID: 1734857903}
   m_Layer: 0
   m_Name: ResourceManager
   m_TagString: Untagged
@@ -824,18 +725,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1734857903
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1734857902}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 63b558f2e1d34a75b9e2392d5a545874, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!4 &1734857904
 Transform:
   m_ObjectHideFlags: 0

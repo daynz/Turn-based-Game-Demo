@@ -141,7 +141,7 @@ namespace BH.Framework.Infrastructure.Events.Core
 
             if (_eventQueue.Count >= _maxQueueSize)
             {
-                LogService.EventLog($"通道 '{ChannelType}' 队列已满，丢弃事件: {eventData.GetType().Name}", Name);
+                LogService.EventLog($"通道 '{ChannelType}' 队列已满，丢弃事件: {eventData.GetType().Name}");
                 return;
             }
 
@@ -214,7 +214,7 @@ namespace BH.Framework.Infrastructure.Events.Core
                 catch (Exception ex)
                 {
                     LogService.EventLogError(
-                        $"调用事件处理程序时出错 '{eventData.GetType().Name}': {ex.Message}", Name);
+                        $"调用事件处理程序时出错 '{eventData.GetType().Name}': {ex.Message}");
                 }
             }
         }

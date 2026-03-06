@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using BH.Framework.Infrastructure.DI.Attributes;
 using BH.Framework.Infrastructure.Logging.Core;
+using BH.Framework.Infrastructure.Resource.Services;
 using BH.Framework.Interfaces;
 using BH.Framework.Services;
 using BH.Framework.Singleton;

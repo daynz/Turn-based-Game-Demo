@@ -2,19 +2,15 @@ using System;
 using System.Threading.Tasks;
 using BH.Framework.Enums;
 using BH.Framework.Infrastructure.Events.Core;
+using Zenject;
 
 namespace BH.Framework.Infrastructure.Events.Interfaces
 {
     /// <summary>
     /// 事件系统的核心操作接口
     /// </summary>
-    public interface IEventService
+    public interface IEventService : IInitializable, IDisposable
     {
-        /// <summary>
-        /// 事件系统是否已完成初始化。
-        /// </summary>
-        bool IsInitialized { get; }
-
         /// <summary>
         /// 启用事件系统。
         /// </summary>
@@ -24,11 +20,6 @@ namespace BH.Framework.Infrastructure.Events.Interfaces
         /// 禁用事件系统。
         /// </summary>
         void Disable();
-
-        /// <summary>
-        /// 关闭并清理事件系统的所有资源。
-        /// </summary>
-        void Shutdown();
 
         /// <summary>
         /// 发布一个事件到其默认关联的通道。

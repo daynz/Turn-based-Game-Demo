@@ -1,63 +1,70 @@
 using System;
 using System.Threading.Tasks;
-using BH.Framework.Enums;
-using BH.Framework.Infrastructure.DI.Attributes;
-using BH.Framework.Infrastructure.Events.Base;
-using BH.Framework.Infrastructure.Events.Core;
-using BH.Framework.Infrastructure.Events.Data;
-using BH.Framework.Infrastructure.FSM.StateMachine;
-using UnityEngine;
+using BH.Framework.Infrastructure.Events.Interfaces;
+using BH.Framework.Infrastructure.Logging.Core;
+using BH.Framework.Infrastructure.Logging.Interfaces;
+using BH.Framework.Infrastructure.Resource.Interfaces;
+using Zenject;
+using IInitializable = Zenject.IInitializable;
 
 namespace BH.Framework.Services
 {
-    [Serializable]
-    [AutoRegisterService]
-    public sealed class GameService : ServiceBase
+    public class GameService : IInitializable, IDisposable
     {
-        public override string Name => GetType().Name;
-        private GameStateMachine _gameStateMachine;
-        [SerializeField] private int priority = (int)PriorityOrder.Game;
-        private GameEventHandler _eventHandler;
-
-        public override int Priority => priority;
-
-        public override Task InitializeAsync()
+        [Inject] private IResourceService _resourceService;
+        [Inject] private ILogService _logService;
+        [Inject] private IAddressableService _addressableService;
+        [Inject] private IEventService _eventService;
+        
+        public async void Initialize()
         {
-            if (!IsInitialized) return Task.CompletedTask;
-            Debug.Log("开始初始化...");
-            // _gameStateMachine = new GameStateMachine();
-            // _gameStateMachine.Init();
-            //
-            // _eventHandler = new GameEventHandler(EventService);
-            Debug.Log($"EventService注入：{EventService}");
-            base.InitializeAsync();
-            Debug.Log("初始化完成。");
-            IsInitialized = true;
-            return Task.CompletedTask;
-        }
-
-        protected override void RegisterEventListener()
-        {
-            _eventHandler.Subscribe<GameStartEvent>(OnGameStart);
-        }
-
-        private void OnGameStart(GameStartEvent @event)
-        {
-            LogService.Info("游戏开始", Name);
-        }
-
-        public override void Shutdown()
-        {
-            _eventHandler.Dispose();
-            _gameStateMachine.ClearStates();
-            LogService.Info($"[{GetType().Name}] 关闭", Name);
-        }
-
-        private class GameEventHandler : EventHandlerBase
-        {
-            public GameEventHandler(EventService eventService) : base(eventService)
+            try
             {
+                _logService.Info("开始启动游戏");
+                // 加载 Addressable 配置（依赖基础日志）
+                // TODO: 修改加载位置
+                var logConfig = await _resourceService.LoadJsonConfigAsync<LogConfig>("DefaultLogConfig");
+                (_logService as LogService)?.UpdateConfig(logConfig);
+
+                // 启动其他游戏服务
+                await StartOtherGameServicesAsync();
+
+                _logService.Info("游戏所有服务启动完成，进入运行阶段");
             }
+            catch (Exception e)
+            {
+                _logService.Info($"游戏启动失败：{e.Message}");
+            }
+        }
+
+        // todo: 异步加载
+        private Task StartOtherGameServicesAsync()
+        {
+            try
+            {
+                _logService.Info("开始启动其他游戏服务...");
+
+                // 示例：启动网络服务（此时已用完整日志）
+                //var networkService = _container.Resolve<INetworkService>();
+                //await networkService.ConnectAsync();
+
+                // 示例：启动存档服务
+                //var saveService = _container.Resolve<ISaveService>();
+                //saveService.LoadSaveData();
+
+                _logService.Info("所有游戏服务启动完成");
+                return Task.CompletedTask;
+            }
+            catch (Exception exception)
+            {
+                return Task.FromException(exception);
+            }
+        }
+
+        public void Dispose()
+        {
+            _logService.Info("GameLifecycleManager 释放资源");
+            _logService?.Dispose(); // 若 LogService 有释放逻辑
         }
     }
 }
