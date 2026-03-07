@@ -115,7 +115,7 @@ namespace BH.Framework.Managers
         private void OnGameStarted()
         {
             LogService.Info($"[GameBootstrap] 进入游戏主流程...", Name);
-            EventService.Publish(EventBuilder.Create<GameStartEvent>().WithSender(this).Build());
+            //EventService.Publish(EventBuilder.Create<GameStartEvent>().WithSender(this).Build());
         }
 
         private void HandleStartupError(Exception e)

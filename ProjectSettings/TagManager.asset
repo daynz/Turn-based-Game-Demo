@@ -2,8 +2,22 @@
 %TAG !u! tag:unity3d.com,2011:
 --- !u!78 &1
 TagManager:
-  serializedVersion: 2
-  tags: []
+  serializedVersion: 3
+  tags:
+  - BodyPart
+  - Projectile
+  - WeaponManager
+  - Enemy
+  - GameManager
+  - ItemManager
+  - Concrete
+  - Metal
+  - Dirt
+  - Wood
+  - Water
+  - AI
+  - Remote
+  - IgnoreBullet
   layers:
   - Default
   - TransparentFX
@@ -13,14 +27,14 @@ TagManager:
   - UI
   - 
   - 
+  - Weapons
+  - Player
+  - MiniMap
+  - PostEffects
+  - Local
+  - Zone
   - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
+  - Vehicle
   - 
   - 
   - 
@@ -50,27 +64,3 @@ TagManager:
   - Light Layer 5
   - Light Layer 6
   - Light Layer 7
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 

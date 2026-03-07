@@ -5,7 +5,7 @@ using BH.Framework.Enums;
 using BH.Framework.Infrastructure.DI.Attributes;
 using BH.Framework.Infrastructure.Events.Attributes;
 using BH.Framework.Infrastructure.Events.Interfaces;
-using BH.Framework.Infrastructure.Logging.Core;
+using BH.Framework.Infrastructure.Logging.Interfaces;
 using JetBrains.Annotations;
 
 namespace BH.Framework.Infrastructure.Events.Core
@@ -13,93 +13,89 @@ namespace BH.Framework.Infrastructure.Events.Core
     /// <summary>
     /// 事件订阅项，表示一个事件处理程序的订阅关系
     /// </summary>
-    public class EventSubscription : IDisposable
+    [UsedImplicitly]
+    public sealed class EventSubscription : IDisposable
     {
         #region 私有字段
 
-        private readonly Action<IEventData> _syncHandler;
-        private readonly Func<IEventData, Task> _asyncHandler;
+        private readonly Type _handledEventType;
         private readonly bool _isAsync;
-        private bool _isDisposed;
-        private EventType? _eventType;
+        private bool _disposed;
 
-        [Inject] private LogService _logService;
+        [Inject] private readonly ILogService _logService;
 
         #endregion
 
         #region 公共属性
 
-        public string Name => GetType().Name;
-        public Guid Id { get; }
-
         /// <summary>
-        /// 处理的具体事件类型
+        /// 同步事件处理器
         /// </summary>
-        public Type HandledType { get; }
-
+        public Action<IEvent<IEventData>> SyncHandler { get; }
 
         /// <summary>
-        /// 事件类型
+        /// 异步事件处理器
         /// </summary>
-        public EventType EventType
-        {
-            get
-            {
-                if (_eventType != null) return _eventType.Value;
-                var attr = HandledType.GetCustomAttribute<EventTypeAttribute>();
-                _eventType = attr?.EventType ?? EventType.None;
-
-                return _eventType.Value;
-            }
-        }
+        public Func<IEvent<IEventData>, Task> AsyncHandler { get; }
 
         /// <summary>
-        /// 处理优先级
+        /// 事件处理优先级
         /// </summary>
         public EventPriority Priority { get; }
 
         /// <summary>
-        /// 订阅者所有者对象
+        /// 订阅者拥有者
         /// </summary>
         public object Owner { get; }
 
         /// <summary>
-        /// 是否为一次性订阅
+        /// 是否一次性订阅（触发后自动释放）
         /// </summary>
         public bool IsOnce { get; }
 
         /// <summary>
-        /// 是否为异步处理
+        /// 是否已释放
         /// </summary>
-        public bool IsAsync => _isAsync;
+        public bool IsDisposed => _disposed;
+
+        /// <summary>
+        /// 处理的事件类型
+        /// </summary>
+        public Type HandledEventType => _handledEventType;
+
+        /// <summary>
+        /// 日志标识名称
+        /// </summary>
+        private string LogName => $"EventSubscription_{_handledEventType?.Name ?? "Unknown"}";
 
         #endregion
 
         #region 构造函数
 
-        private EventSubscription(Type handledType, Action<IEventData> handler, EventPriority priority,
-            [CanBeNull] object owner, bool isOnce)
+        /// <summary>
+        /// 私有构造函数，禁止外部直接实例化
+        /// </summary>
+        /// <param name="syncHandler">同步处理器</param>
+        /// <param name="asyncHandler">异步处理器</param>
+        /// <param name="priority">优先级</param>
+        /// <param name="owner">拥有者</param>
+        /// <param name="isOnce">是否一次性</param>
+        /// <param name="handledEventType">处理的事件类型</param>
+        private EventSubscription(
+            Action<IEvent<IEventData>> syncHandler,
+            Func<IEvent<IEventData>, Task> asyncHandler,
+            EventPriority priority,
+            object owner,
+            bool isOnce,
+            Type handledEventType)
         {
-            Id = Guid.NewGuid();
-            HandledType = handledType ?? throw new ArgumentNullException(nameof(handledType));
-            _syncHandler = handler ?? throw new ArgumentNullException(nameof(handler));
-            _asyncHandler = null;
-            _isAsync = false;
+            SyncHandler = syncHandler;
+            AsyncHandler = asyncHandler;
             Priority = priority;
             Owner = owner;
             IsOnce = isOnce;
-        }
-
-        private EventSubscription(Type handledType, Func<IEventData, Task> handler, EventPriority priority,
-            [CanBeNull] object owner, bool isOnce)
-        {
-            HandledType = handledType ?? throw new ArgumentNullException(nameof(handledType));
-            _syncHandler = null;
-            _asyncHandler = handler ?? throw new ArgumentNullException(nameof(handler));
-            _isAsync = true;
-            Priority = priority;
-            Owner = owner;
-            IsOnce = isOnce;
+            _handledEventType = handledEventType ?? throw new ArgumentNullException(nameof(handledEventType));
+            _isAsync = asyncHandler != null;
         }
 
         #endregion
@@ -109,95 +105,209 @@ namespace BH.Framework.Infrastructure.Events.Core
         /// <summary>
         /// 创建同步事件订阅（泛型）
         /// </summary>
-        public static EventSubscription Create<T>(Action<T> handler, EventPriority priority = 0,
-            [CanBeNull] object owner = null,
-            bool isOnce = false) where T : IEventData
+        /// <typeparam name="T">事件类型</typeparam>
+        /// <param name="handler">同步事件处理器</param>
+        /// <param name="priority">处理优先级</param>
+        /// <param name="owner">订阅者拥有者</param>
+        /// <param name="isOnce">是否一次性订阅</param>
+        /// <returns>事件订阅实例</returns>
+        /// <exception cref="ArgumentNullException">处理器为空时抛出</exception>
+        public static EventSubscription Create<T>(
+            Action<T> handler,
+            EventPriority priority = EventPriority.Normal,
+            object owner = null,
+            bool isOnce = false)
+            where T : class, IEvent<IEventData>
         {
-            return handler == null
-                ? throw new ArgumentNullException(nameof(handler))
-                : new EventSubscription(typeof(T), Wrap, priority, owner, isOnce);
-            void Wrap(IEventData data) => handler((T)data);
+            if (handler == null)
+                throw new ArgumentNullException(nameof(handler), "同步事件处理器不能为空");
+
+            return new EventSubscription(
+                syncHandler: e =>
+                {
+                    if (e is T typedEvent)
+                        handler.Invoke(typedEvent);
+                    else
+                        throw new InvalidCastException($"无法将事件类型 {e.GetType().Name} 转换为 {typeof(T).Name}");
+                },
+                asyncHandler: null,
+                priority: priority,
+                owner: owner,
+                isOnce: isOnce,
+                handledEventType: typeof(T));
         }
 
         /// <summary>
         /// 创建异步事件订阅（泛型）
         /// </summary>
-        public static EventSubscription CreateAsync<T>(Func<T, Task> handler, EventPriority priority = 0,
-            [CanBeNull] object owner = null, bool isOnce = false) where T : IEventData
+        /// <typeparam name="T">事件类型</typeparam>
+        /// <param name="handler">异步事件处理器</param>
+        /// <param name="priority">处理优先级</param>
+        /// <param name="owner">订阅者拥有者</param>
+        /// <param name="isOnce">是否一次性订阅</param>
+        /// <returns>事件订阅实例</returns>
+        /// <exception cref="ArgumentNullException">处理器为空时抛出</exception>
+        public static EventSubscription CreateAsync<T>(
+            Func<T, Task> handler,
+            EventPriority priority = EventPriority.Normal,
+            object owner = null,
+            bool isOnce = false)
+            where T : class, IEvent<IEventData>
         {
-            return handler == null
-                ? throw new ArgumentNullException(nameof(handler))
-                : new EventSubscription(typeof(T), WrapAsync, priority, owner, isOnce);
-            async Task WrapAsync(IEventData data) => await handler((T)data);
+            if (handler == null)
+                throw new ArgumentNullException(nameof(handler), "异步事件处理器不能为空");
+
+            return new EventSubscription(
+                syncHandler: null,
+                asyncHandler: async e =>
+                {
+                    if (e is T typedEvent)
+                        await handler.Invoke(typedEvent).ConfigureAwait(false);
+                    else
+                        throw new InvalidCastException($"无法将事件类型 {e.GetType().Name} 转换为 {typeof(T).Name}");
+                },
+                priority: priority,
+                owner: owner,
+                isOnce: isOnce,
+                handledEventType: typeof(T));
         }
 
         #endregion
 
-        #region 公共方法
+        #region 事件触发方法
 
         /// <summary>
-        /// 触发事件处理
+        /// 同步触发事件处理（异步处理器会被调度到线程池）
         /// </summary>
-        public void Invoke(IEventData eventData)
+        /// <param name="eventData">事件数据</param>
+        public void Invoke(IEvent<IEventData> eventData)
         {
-            if (_isDisposed) return;
+            if (_disposed)
+            {
+                _logService.Warning("尝试调用已释放的事件订阅", LogName);
+                return;
+            }
+
+            if (eventData == null)
+            {
+                _logService.Error("事件数据不能为空", LogName);
+                return;
+            }
 
             try
             {
                 if (!_isAsync)
                 {
-                    _syncHandler?.Invoke(eventData);
+                    // 同步处理
+                    SyncHandler?.Invoke(eventData);
                 }
                 else
                 {
-                    if (_asyncHandler == null)
+                    // 异步处理：调度到线程池并捕获异常
+                    _ = Task.Run(async () =>
                     {
-                        _logService.Error($"异步事件标记为异步但异步处理器为空: {HandledType.Name}", Name);
-                    }
-                    else
-                    {
-                        // 异步任务调度到线程池，注意：Unity API 需在主线程调用
-                        Task.Run(async () =>
+                        try
                         {
-                            try
-                            {
-                                await _asyncHandler(eventData);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logService.Error($"异步事件处理失败: {HandledType.Name}, Error: {ex.Message}", Name);
-                            }
-                        });
-                    }
+                            await AsyncHandler!.Invoke(eventData).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logService.Error($"异步事件处理失败: {_handledEventType.Name}, 错误: {ex.Message}", LogName);
+                        }
+                    });
                 }
+
+                // 一次性订阅触发后自动释放
+                if (IsOnce)
+                    Dispose();
             }
             catch (Exception ex)
             {
-                _logService.Error($"事件处理失败: {HandledType.Name}, Error: {ex.Message}", Name);
+                _logService.Error($"事件处理失败: {_handledEventType.Name}, 错误: {ex.Message}", LogName);
+
+                // 一次性订阅即使处理失败也释放
+                if (IsOnce)
+                    Dispose();
             }
+        }
+
+        /// <summary>
+        /// 异步触发事件处理
+        /// </summary>
+        /// <param name="eventData">事件数据</param>
+        /// <returns>处理任务</returns>
+        public async Task InvokeAsync(IEvent<IEventData> eventData)
+        {
+            if (_disposed)
+            {
+                _logService.Warning("尝试调用已释放的事件订阅", LogName);
+                return;
+            }
+
+            if (eventData == null)
+            {
+                _logService.Error("事件数据不能为空", LogName);
+                return;
+            }
+
+            try
+            {
+                if (!_isAsync)
+                {
+                    // 同步处理器异步调用
+                    SyncHandler?.Invoke(eventData);
+                }
+                else
+                {
+                    // 异步处理器直接调用
+                    await AsyncHandler!.Invoke(eventData).ConfigureAwait(false);
+                }
+
+                // 一次性订阅触发后自动释放
+                if (IsOnce)
+                    Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logService.Error($"异步事件处理失败: {_handledEventType.Name}, 错误: {ex.Message}", LogName);
+
+                // 一次性订阅即使处理失败也释放
+                if (IsOnce)
+                    Dispose();
+                throw; // 向上抛出异常，由调用方处理
+            }
+        }
+
+        #endregion
+
+        #region 辅助方法
+
+        /// <summary>
+        /// 获取事件类型
+        /// </summary>
+        /// <typeparam name="T">事件数据类型</typeparam>
+        /// <returns>事件类型枚举</returns>
+        public static EventType GetEventTypeFromData<T>() where T : IEvent<IEventData>
+        {
+            // 可根据实际业务逻辑扩展，比如从特性获取事件类型
+            var eventTypeAttr = typeof(T).GetCustomAttribute<EventTypeAttribute>();
+            return eventTypeAttr?.EventType ?? EventType.SystemEvent;
         }
 
         #endregion
 
         #region IDisposable 实现
 
+        /// <summary>
+        /// 释放订阅资源
+        /// </summary>
         public void Dispose()
         {
-            if (_isDisposed) return;
-            _isDisposed = true;
-        }
+            if (_disposed)
+                return;
 
-        #endregion
-
-        #region 静态方法
-
-        public static EventType GetEventTypeFromData<T>() where T : IEventData
-        {
-            var attr = typeof(T).GetCustomAttribute<EventTypeAttribute>();
-            return attr?.EventType ??
-                   throw new InvalidOperationException(
-                       $"类型 {typeof(T).Name} 缺少 EventTypeAttribute 特性，无法确定通道路由。"
-                   );
+            _disposed = true;
+            _logService.Debug($"事件订阅已释放: {_handledEventType.Name}", LogName);
         }
 
         #endregion

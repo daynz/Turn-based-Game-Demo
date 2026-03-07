@@ -1,14 +1,12 @@
 using BH.Framework.Enums;
-using BH.Framework.Infrastructure.Events.Attributes;
 using BH.Framework.Infrastructure.Events.Base;
 
 namespace BH.Framework.Infrastructure.Events.Data
 {
-    [EventType(EventType.GameEvent)]
-    public class GameStartEvent : EventBase
+    public class GameStartData : Event<EmptyEventData>
     {
-        protected GameStartEvent(object sender, EventPriority priority = EventPriority.Normal,
-            bool allowMultipleHandlers = true, object data = null) : base(sender, priority, allowMultipleHandlers, data)
+        protected GameStartData(object sender, EmptyEventData data, EventPriority priority = EventPriority.Normal,
+            bool allowMultipleHandlers = true) : base(sender, data, priority, allowMultipleHandlers)
         {
         }
     }

@@ -5,7 +5,7 @@ using BH.Framework.Infrastructure.Events.Base;
 namespace BH.GameSystems.BattleSystem.Events.EventTurn
 {
     [EventType(EventType.TurnEvent)]
-    public class TurnEvent : EventBase
+    public class TurnEvent : Event<>
     {
         protected TurnEvent(object sender, EventPriority priority, bool allowMultipleHandlers, object data)
             : base(sender, priority, allowMultipleHandlers, data)

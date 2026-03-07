@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Reflection;
 using BH.Framework.Enums;
 using BH.Framework.Infrastructure.Events.Attributes;
+using BH.Framework.Infrastructure.Events.Core;
 using BH.Framework.Infrastructure.Events.Interfaces;
+using BH.Framework.Infrastructure.Logging.Interfaces;
 using UnityEngine;
+using Zenject;
 using EventType = BH.Framework.Enums.EventType;
 
 namespace BH.Framework.Infrastructure.Events.Base
@@ -13,19 +16,30 @@ namespace BH.Framework.Infrastructure.Events.Base
     /// 事件系统基础抽象类
     /// </summary>
     [Serializable]
-    public abstract class EventBase : IEventData
+    public class Event<TData> : IEvent<TData> where TData : IEventData
     {
-        private static readonly Dictionary<Type, EventType> TypeToEventTypeCache = new();
-
+        [NonSerialized] private Guid _eventId;
+        [NonSerialized] private object _sender;
         [SerializeField] private EventPriority priority;
+        [NonSerialized] private TData _data;
         [SerializeField] private bool allowMultipleHandlers;
         [SerializeField] private bool isHandled;
+        [NonSerialized] private DateTime _timestamp;
+        [NonSerialized] private EventType? _cachedEventType;
+        [NonSerialized] private Dictionary<string, object> _metadata;
+        [NonSerialized] private string _callStack;
 
-        public Guid EventId { get; }
-        public object Sender { get; }
-        public DateTime Timestamp { get; }
-        public object Data { get; }
-        public Dictionary<string, object> Metadata { get; }
+        [Inject] private ILogService _logService;
+
+        public Guid EventId => _eventId;
+
+        public object Sender => _sender;
+
+        public DateTime Timestamp => _timestamp;
+
+        public TData Data => _data;
+
+        public Dictionary<string, object> Metadata => _metadata;
 
         public bool IsHandled
         {
@@ -36,10 +50,11 @@ namespace BH.Framework.Infrastructure.Events.Base
         public EventPriority Priority => priority;
         public bool AllowMultipleHandlers => allowMultipleHandlers;
 
-        // 用于存储调用堆栈（仅在 DEBUG 模式下）
-        public string CallStack { get; private set; }
-
-        private EventType? _cachedEventType;
+        public string CallStack
+        {
+            get => _callStack;
+            private set => _callStack = value;
+        }
 
         public EventType EventType
         {
@@ -50,7 +65,7 @@ namespace BH.Framework.Infrastructure.Events.Base
                     return _cachedEventType.Value;
                 }
 
-                var eventType = GetEventTypeFromCache(GetType());
+                var eventType = GlobalEventTypeCache.GetEventTypeFromCache(GetType());
                 if (eventType == null)
                 {
                     throw new InvalidOperationException(
@@ -61,7 +76,6 @@ namespace BH.Framework.Infrastructure.Events.Base
                 return _cachedEventType.Value;
             }
         }
-
 
         #region 私有化构造函数
 
@@ -74,16 +88,16 @@ namespace BH.Framework.Infrastructure.Events.Base
         /// <param name="priority">事件优先级</param>
         /// <param name="allowMultipleHandlers">是否允许多处理器</param>
         /// <param name="data">事件携带数据</param>
-        protected EventBase(object sender, EventPriority priority = EventPriority.Normal,
-            bool allowMultipleHandlers = true, object data = null)
+        protected Event(object sender, TData data, EventPriority priority = EventPriority.Normal,
+            bool allowMultipleHandlers = true)
         {
-            EventId = Guid.NewGuid();
-            Sender = sender;
-            Timestamp = DateTime.UtcNow; // 使用 UTC 时间保证一致性
+            _eventId = Guid.NewGuid();
+            _sender = sender ?? throw new ArgumentNullException(nameof(sender), "事件发送者不可为null");
+            _data = data ?? throw new ArgumentNullException(nameof(data), "事件数据不可为null");
+            _timestamp = DateTime.UtcNow; // 使用 UTC 时间保证一致性
             this.priority = priority;
             this.allowMultipleHandlers = allowMultipleHandlers;
-            Data = data;
-            Metadata = new Dictionary<string, object>();
+            _metadata = new Dictionary<string, object>();
 
             // 开发模式下记录调用堆栈，便于调试
 #if DEBUG
@@ -96,38 +110,8 @@ namespace BH.Framework.Infrastructure.Events.Base
         #region 数据相关工具方法
 
         /// <summary>
-        /// 从缓存获取事件类型
-        /// 优先从缓存读取，缓存未命中时反射获取并加入缓存
-        /// 线程安全设计，支持异步事件创建场景
-        /// </summary>
-        /// <param name="eventType">事件类类型</param>
-        /// <returns>事件类型枚举值，无特性时返回 null</returns>
-        private EventType? GetEventTypeFromCache(Type eventType)
-        {
-            lock (TypeToEventTypeCache)
-            {
-                if (TypeToEventTypeCache.TryGetValue(eventType, out var type))
-                {
-                    return type;
-                }
-
-                // 反射获取事件类型特性
-                var attr = eventType.GetCustomAttribute<EventTypeAttribute>(inherit: true);
-                if (attr == null)
-                {
-                    return null;
-                }
-
-                // 将获取到的事件类型加入缓存
-                TypeToEventTypeCache.Add(eventType, attr.EventType);
-                return attr.EventType;
-            }
-        }
-
-        /// <summary>
         /// 获取强类型事件数据
         /// 尝试将事件原始数据转换为指定类型
-        /// 转换失败时返回类型默认值，不抛出异常
         /// </summary>
         /// <typeparam name="T">目标数据类型</typeparam>
         /// <returns>转换后的强类型数据，失败返回默认值</returns>
@@ -135,14 +119,17 @@ namespace BH.Framework.Infrastructure.Events.Base
         {
             if (Data is T typedData)
                 return typedData;
+            if (!typeof(T).IsValueType && !typeof(T).IsAssignableFrom(typeof(TData))) return default;
             try
             {
                 return (T)Convert.ChangeType(Data, typeof(T));
             }
             catch
             {
-                return default;
+                _logService.Error("类型转换失败");
             }
+
+            return default;
         }
 
         /// <summary>

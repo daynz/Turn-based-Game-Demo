@@ -7,8 +7,9 @@ using Zenject;
 
 namespace BH.Framework.Infrastructure.Events.Tests
 {
+    [TestFixture]
     public class TestEvents
     {
-
+        
     }
 }
