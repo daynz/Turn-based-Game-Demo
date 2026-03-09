@@ -1,9 +1,12 @@
 using System;
 using System.Threading.Tasks;
+using BH.Framework.Infrastructure.Events.Core;
+using BH.Framework.Infrastructure.Events.Data;
 using BH.Framework.Infrastructure.Events.Interfaces;
 using BH.Framework.Infrastructure.Logging.Core;
 using BH.Framework.Infrastructure.Logging.Interfaces;
 using BH.Framework.Infrastructure.Resource.Interfaces;
+using UnityEngine;
 using Zenject;
 using IInitializable = Zenject.IInitializable;
 
@@ -15,7 +18,7 @@ namespace BH.Framework.Services
         [Inject] private ILogService _logService;
         [Inject] private IAddressableService _addressableService;
         [Inject] private IEventService _eventService;
-        
+
         public async void Initialize()
         {
             try
@@ -23,17 +26,36 @@ namespace BH.Framework.Services
                 _logService.Info("开始启动游戏");
                 // 加载 Addressable 配置（依赖基础日志）
                 // TODO: 修改加载位置
-                var logConfig = await _resourceService.LoadJsonConfigAsync<LogConfig>("DefaultLogConfig");
-                (_logService as LogService)?.UpdateConfig(logConfig);
+                // var logConfig = await _resourceService.LoadJsonConfigAsync<LogConfig>("DefaultLogConfig");
+                // (_logService as LogService)?.UpdateConfig(logConfig);
+                
+                SubscribeEvents();
 
-                // 启动其他游戏服务
-                await StartOtherGameServicesAsync();
-
-                _logService.Info("游戏所有服务启动完成，进入运行阶段");
+                _eventService.Publish(EventBuilder.Create<GameStartEvent, EmptyEventData>()
+                    .WithSender(this)
+                    .Build()
+                );
             }
             catch (Exception e)
             {
                 _logService.Info($"游戏启动失败：{e.Message}");
+            }
+        }
+
+        private void SubscribeEvents()
+        {
+            _eventService.Subscribe<GameStartEvent>(GameStart);
+        }
+
+        private async void GameStart(GameStartEvent @event)
+        {
+            try
+            {
+                await StartOtherGameServicesAsync();
+            }
+            catch (Exception e)
+            {
+                _logService.Error("启动游戏失败");
             }
         }
 
@@ -61,10 +83,15 @@ namespace BH.Framework.Services
             }
         }
 
+        public void TurnBattleStart()
+        {
+            _eventService.Publish(EventBuilder.CreateForEmptyData<BattleStartEvent>().WithSender(this).Build());
+        }
+
         public void Dispose()
         {
-            _logService.Info("GameLifecycleManager 释放资源");
-            _logService?.Dispose(); // 若 LogService 有释放逻辑
+            _logService.Info("释放资源");
+            _logService?.Dispose();
         }
     }
 }

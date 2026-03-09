@@ -5,9 +5,9 @@ using BH.Framework.Infrastructure.Events.Base;
 namespace BH.Framework.Infrastructure.Events.Data
 {
     [EventType(EventType.GameEvent)]
-    public class GameStartEvent : Event<EmptyEventData>
+    public class BattleStartEvent : Event<EmptyEventData>
     {
-        protected GameStartEvent(object sender, EmptyEventData data, EventPriority priority = EventPriority.Normal,
+        protected BattleStartEvent(object sender, EmptyEventData data, EventPriority priority = EventPriority.Normal,
             bool allowMultipleHandlers = true) : base(sender, data, priority, allowMultipleHandlers)
         {
         }

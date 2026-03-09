@@ -179,7 +179,7 @@ namespace BH.Framework.Infrastructure.Events.Core
         /// <returns>强类型事件构建器</returns>
         public static EventBuilder<TEvent, TData> Create<TEvent, TData>()
             where TEvent : Event<TData>
-            where TData : IEventData
+            where TData : class, IEventData
         {
             return EventBuilder<TEvent, TData>.Create();
         }

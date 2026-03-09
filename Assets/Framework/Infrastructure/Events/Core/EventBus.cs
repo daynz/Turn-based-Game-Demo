@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using BH.Framework.Enums;
 using BH.Framework.Infrastructure.Events.Interfaces;
 using BH.Framework.Infrastructure.Logging.Core;
+using BH.Framework.Infrastructure.Logging.Interfaces;
 using Zenject;
 using EventType = BH.Framework.Enums.EventType;
 
@@ -16,7 +17,8 @@ namespace BH.Framework.Infrastructure.Events.Core
         private readonly ConcurrentDictionary<EventType, EventChannel> _channels = new();
         private const EventType DefaultChannel = EventType.SystemEvent;
 
-        [Inject] private LogService LogService { get; set; }
+        [Inject] private ILogService LogService { get; set; }
+        [Inject] private EventChannel.Factory _channelFactory;
         public bool IsInitialized { get; private set; }
 
         public void Initialize()
@@ -37,13 +39,13 @@ namespace BH.Framework.Infrastructure.Events.Core
         public EventChannel CreateChannel(EventType channelType, EventPriority priority = EventPriority.Normal,
             int maxQueueSize = 1000)
         {
-            if (_channels.ContainsKey(channelType))
+            if (_channels.TryGetValue(channelType, out var ch))
             {
                 LogService.EventLog($"[EventBus] 通道已存在: {channelType}");
-                return _channels[channelType];
+                return ch;
             }
-
-            var channel = new EventChannel(channelType);
+            
+            var channel = _channelFactory.Create(channelType);
             _channels[channelType] = channel;
             LogService.EventLog($"[EventBus] 创建通道: {channelType}");
             return channel;

@@ -2,15 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using BH.Framework.Enums;
-using BH.Framework.Infrastructure.Events.Base;
 using BH.Framework.Infrastructure.Events.Core;
+using Zenject;
 
 namespace BH.Framework.Infrastructure.Events.Interfaces
 {
     /// <summary>
     /// 事件总线核心接口：仅负责通道管理、事件发布/订阅的底层实现
     /// </summary>
-    public interface IEventBus : IDisposable
+    public interface IEventBus : IInitializable, IDisposable
     {
         /// <summary>
         /// 初始化所有默认通道

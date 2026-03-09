@@ -19,6 +19,7 @@ namespace BH.Framework.Infrastructure.Events.Core
         public bool IsEnable => _isEnable;
 
         #region 生命周期
+
         public void Initialize()
         {
             EventBus.Initialize();
@@ -40,66 +41,72 @@ namespace BH.Framework.Infrastructure.Events.Core
             _isEnable = false;
             LogService.EventLog("[EventService] 事件系统已禁用", _isEnable);
         }
+
         #endregion
 
         #region 事件发布
-        public void Publish<T>(T eventData) where T : Event<IEventData>
+
+        public void Publish<T>(T eventData) where T : class, IEvent<IEventData>
         {
             if (!_isEnable)
             {
                 LogService.EventLog($"[EventService] 事件系统已禁用，发布失败：{typeof(T).Name}", _isEnable);
                 return;
             }
+
             EventBus.Publish(eventData);
         }
 
-        public void Publish<T>(T eventData, EventType channelType) where T : Event<IEventData>
+        public void Publish<T>(T eventData, EventType channelType) where T : class, IEvent<IEventData>
         {
             if (!_isEnable)
             {
                 LogService.EventLog($"[EventService] 事件系统已禁用，发布失败：{typeof(T).Name} 到通道 {channelType}", _isEnable);
                 return;
             }
+
             EventBus.Publish(eventData, channelType);
         }
+
         #endregion
 
         #region 事件订阅
-        public EventSubscription Subscribe<T>(Action<T> handler, EventPriority priority = EventPriority.Normal, object owner = null, bool isOnce = false) 
-            where T : Event<IEventData>
+
+        public EventSubscription Subscribe<T>(Action<T> handler, EventPriority priority = EventPriority.Normal,
+            object owner = null, bool isOnce = false)
+            where T : class, IEvent<IEventData>
         {
-            if (!_isEnable)
-            {
-                LogService.EventLog($"[EventService] 事件系统已禁用，订阅失败：{typeof(T).Name}", _isEnable);
-                return null;
-            }
-            return EventBus.Subscribe(handler, priority, owner, isOnce);
+            if (_isEnable) return EventBus.Subscribe(handler, priority, owner, isOnce);
+            LogService.EventLog($"[EventService] 事件系统已禁用，订阅失败：{typeof(T).Name}", _isEnable);
+            return null;
         }
 
-        public EventSubscription SubscribeAsync<T>(Func<T, Task> handler, EventPriority priority = EventPriority.Normal, object owner = null, bool isOnce = false) 
-            where T : Event<IEventData>
+        public EventSubscription SubscribeAsync<T>(Func<T, Task> handler, EventPriority priority = EventPriority.Normal,
+            object owner = null, bool isOnce = false)
+            where T : class, IEvent<IEventData>
         {
-            if (!_isEnable)
-            {
-                LogService.EventLog($"[EventService] 事件系统已禁用，订阅失败：{typeof(T).Name}", _isEnable);
-                return null;
-            }
-            return EventBus.SubscribeAsync(handler, priority, owner, isOnce);
+            if (_isEnable) return EventBus.SubscribeAsync(handler, priority, owner, isOnce);
+            LogService.EventLog($"[EventService] 事件系统已禁用，订阅失败：{typeof(T).Name}", _isEnable);
+            return null;
         }
 
-        public EventSubscription SubscribeToChannel<T>(EventType channelType, Action<T> handler, EventPriority priority = EventPriority.Normal, object owner = null, bool isOnce = false) 
-            where T : Event<IEventData>
+        public EventSubscription SubscribeToChannel<T>(EventType channelType, Action<T> handler,
+            EventPriority priority = EventPriority.Normal, object owner = null, bool isOnce = false)
+            where T : class, IEvent<IEventData>
         {
             if (!_isEnable)
             {
                 LogService.EventLog($"[EventService] 事件系统已禁用，订阅失败：{typeof(T).Name} 到通道 {channelType}", _isEnable);
                 return null;
             }
+
             return EventBus.Subscribe(channelType, handler, priority, owner, isOnce);
         }
+
         #endregion
 
         #region 取消订阅
+
         public void Unsubscribe(EventSubscription subscription, EventType? channelType = null)
         {
             EventBus.Unsubscribe(subscription, channelType);
@@ -111,9 +118,11 @@ namespace BH.Framework.Infrastructure.Events.Core
             EventBus.UnsubscribeAll(owner);
             LogService.EventLog($"[EventService] 取消所有者 {owner?.GetType().Name} 的所有订阅", _isEnable);
         }
+
         #endregion
 
         #region 事件处理
+
         public void ProcessChannels(int maxEventsPerFrame)
         {
             if (!_isEnable)
@@ -125,22 +134,27 @@ namespace BH.Framework.Infrastructure.Events.Core
             var maxPerChannel = Math.Max(1, maxEventsPerFrame / EventBus.ChannelCount);
             EventBus.ProcessAllChannels(maxPerChannel);
         }
+
         #endregion
 
         #region 通道管理
+
         public EventChannel GetChannel(EventType channelType)
         {
             return EventBus.GetChannel(channelType);
         }
+
         #endregion
 
         #region 资源释放
+
         public void Dispose()
         {
             EventBus.Dispose();
             _isEnable = false;
             LogService.EventLog("[EventService] 事件系统已关闭");
         }
+
         #endregion
     }
 }

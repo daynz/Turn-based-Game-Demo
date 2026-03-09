@@ -5,7 +5,9 @@
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "BH.Framework",
-        "Zenject"
+        "Zenject",
+        "TNRD.NSubstitute",
+        "Zenject-TestFramework"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -13,11 +15,11 @@
     "overrideReferences": true,
     "precompiledReferences": [
         "nunit.framework.dll",
+        "Zenject-usage.dll",
         "Zenject.ReflectionBaking.Mono.Cecil.Mdb.dll",
         "Zenject.ReflectionBaking.Mono.Cecil.dll",
         "Zenject.ReflectionBaking.Mono.Cecil.Pdb.dll",
-        "Zenject.ReflectionBaking.Mono.Cecil.Rocks.dll",
-        "Zenject-usage.dll"
+        "Zenject.ReflectionBaking.Mono.Cecil.Rocks.dll"
     ],
     "autoReferenced": false,
     "defineConstraints": [

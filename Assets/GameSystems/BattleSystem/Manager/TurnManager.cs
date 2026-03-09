@@ -7,7 +7,6 @@ using BH.Framework.Infrastructure.Logging.Core;
 using BH.Framework.Singleton;
 using BH.GameSystems.BattleSystem.Config;
 using BH.GameSystems.BattleSystem.Enums;
-using BH.GameSystems.BattleSystem.Events.EventTurn;
 using BH.GameSystems.BattleSystem.Systems.ActionQueueSystem;
 using BH.GameSystems.BattleSystem.Systems.TurnSystem.Core;
 using UnityEngine;

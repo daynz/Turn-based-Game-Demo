@@ -88,25 +88,13 @@ namespace BH.Framework.Infrastructure.Events.Core
         #region 构造函数
 
         /// <summary>
-        /// 初始化事件通道（兼容原有多参数构造）
-        /// </summary>
-        /// <param name="channelType">通道类型（作为名称）</param>
-        /// <param name="priority">预留优先级参数</param>
-        /// <param name="maxQueueSize">最大队列大小</param>
-        public EventChannel(EventType channelType, EventPriority priority = EventPriority.Normal,
-            int maxQueueSize = 1000)
-            : this(channelType)
-        {
-            _maxQueueSize = maxQueueSize;
-        }
-
-        /// <summary>
         /// 初始化事件通道
         /// </summary>
         /// <param name="channelType">通道类型（用于日志和标识）</param>
         public EventChannel(EventType channelType)
         {
             Type = channelType == EventType.None ? DefaultEventType : channelType;
+            // 预留Priority
             _maxQueueSize = 1000; // 默认队列大小
         }
 
@@ -184,7 +172,7 @@ namespace BH.Framework.Infrastructure.Events.Core
         public void ClearQueue()
         {
             _eventQueue.Clear();
-            _logService.Debug($"事件队列已清空: 通道={Type}");
+            _logService?.Debug($"事件队列已清空: 通道={Type}");
         }
 
         #endregion
@@ -390,8 +378,8 @@ namespace BH.Framework.Infrastructure.Events.Core
                         subscription.Dispose();
                 }
 
-                _subscriptions.Clear();
-                _logService.Debug($"事件通道所有订阅已清空: 通道={Type}");
+                _subscriptions?.Clear();
+                _logService?.Debug($"事件通道所有订阅已清空: 通道={Type}");
             }
         }
 
@@ -566,5 +554,13 @@ namespace BH.Framework.Infrastructure.Events.Core
         }
 
         #endregion
+
+        /// <summary>
+        /// 工厂类，用于 Extenject 创建带参数的 EventChannel
+        /// </summary>
+        public class Factory : PlaceholderFactory<EventType, EventChannel>
+        {
+            
+        }
     }
 }

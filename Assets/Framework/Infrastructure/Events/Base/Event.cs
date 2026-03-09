@@ -93,7 +93,7 @@ namespace BH.Framework.Infrastructure.Events.Base
         {
             _eventId = Guid.NewGuid();
             _sender = sender ?? throw new ArgumentNullException(nameof(sender), "事件发送者不可为null");
-            _data = data ?? throw new ArgumentNullException(nameof(data), "事件数据不可为null");
+            _data = data;
             _timestamp = DateTime.UtcNow; // 使用 UTC 时间保证一致性
             this.priority = priority;
             this.allowMultipleHandlers = allowMultipleHandlers;

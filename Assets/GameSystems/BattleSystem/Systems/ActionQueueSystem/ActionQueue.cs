@@ -7,7 +7,7 @@ using BH.Framework.Infrastructure.Events.Core;
 using BH.Framework.Singleton;
 using BH.Framework.Utilities.Collections;
 using BH.GameSystems.BattleSystem.Config;
-using BH.GameSystems.BattleSystem.Events.EventUnits;
+using BH.GameSystems.BattleSystem.Events;
 using BH.GameSystems.BattleSystem.Interfaces;
 using BH.GameSystems.BattleSystem.Systems.UnitSystem.Base;
 
@@ -18,8 +18,6 @@ namespace BH.GameSystems.BattleSystem.Systems.ActionQueueSystem
     {
         private PriorityQueue<ActionEntity> _queue = new();
         private List<ICharacterData> _characterDataCache;
-
-        private ActionQueueEventHandler _eventHandler;
 
         public override void Initialize()
         {
@@ -32,7 +30,7 @@ namespace BH.GameSystems.BattleSystem.Systems.ActionQueueSystem
 
         private void GenerateCache(LoadUnitDataCompletedEvent @event)
         {
-            _characterDataCache = (List<ICharacterData>)@event.Data;
+            //_characterDataCache = (List<ICharacterData>)@event.Data;
         }
 
         public void Init(BattleConfig config)
@@ -90,13 +88,6 @@ namespace BH.GameSystems.BattleSystem.Systems.ActionQueueSystem
                 str = list.Aggregate(str, (current, entity) => current + (entity + "\n"));
 
             return str;
-        }
-
-        private class ActionQueueEventHandler : EventHandlerBase
-        {
-            public ActionQueueEventHandler(EventService eventService) : base(eventService)
-            {
-            }
         }
     }
 }

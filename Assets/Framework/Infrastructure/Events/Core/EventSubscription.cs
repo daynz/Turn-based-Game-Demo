@@ -307,7 +307,7 @@ namespace BH.Framework.Infrastructure.Events.Core
                 return;
 
             _disposed = true;
-            _logService.Debug($"事件订阅已释放: {_handledEventType.Name}", LogName);
+            _logService?.Debug($"事件订阅已释放: {_handledEventType.Name}", LogName);
         }
 
         #endregion

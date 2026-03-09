@@ -40,33 +40,33 @@ namespace BH.Framework.Infrastructure.Events.Interfaces
         /// <summary>
         /// 发布事件到默认通道
         /// </summary>
-        void Publish<T>(T eventData) where T : Event<IEventData>;
+        void Publish<T>(T eventData) where T : class, IEvent<IEventData>;
 
         /// <summary>
         /// 发布事件到指定通道
         /// </summary>
-        void Publish<T>(T eventData, EventType channelType) where T : Event<IEventData>;
+        void Publish<T>(T eventData, EventType channelType) where T : class, IEvent<IEventData>;
 
         /// <summary>
         /// 订阅默认通道的同步事件
         /// </summary>
         EventSubscription Subscribe<T>(Action<T> handler, EventPriority priority = EventPriority.Normal,
             object owner = null, bool isOnce = false)
-            where T : Event<IEventData>;
+            where T : class, IEvent<IEventData>;
 
         /// <summary>
         /// 订阅默认通道的异步事件
         /// </summary>
         EventSubscription SubscribeAsync<T>(Func<T, Task> handler, EventPriority priority = EventPriority.Normal,
             object owner = null, bool isOnce = false)
-            where T : Event<IEventData>;
+            where T : class, IEvent<IEventData>;
 
         /// <summary>
         /// 订阅指定通道的同步事件
         /// </summary>
         EventSubscription SubscribeToChannel<T>(EventType channelType, Action<T> handler,
             EventPriority priority = EventPriority.Normal, object owner = null, bool isOnce = false)
-            where T : Event<IEventData>;
+            where T : class, IEvent<IEventData>;
 
         /// <summary>
         /// 取消订阅

@@ -6,12 +6,12 @@ using Zenject;
 namespace BH.Framework.Managers
 {
     [Serializable]
-    public class GameManager : MonoInstaller
+    public class GameManager : MonoBehaviour
     {
-        [Inject] private GameService _gameLifecycleService;
+        [Inject] private GameService _gameService;
         
         // 按钮尺寸（宽、高）
-        public Vector2 buttonSize = new Vector2(200, 60);
+        public Vector2 buttonSize = new(200, 60);
 
         // 按钮之间的垂直间距
         public float buttonSpacing = 20f;
@@ -33,7 +33,8 @@ namespace BH.Framework.Managers
             // 4. 绘制第一个按钮
             if (GUI.Button(new Rect(centerX, startY, buttonSize.x, buttonSize.y), "回合制战斗模式"))
             {
-                Debug.Log("点击了按钮1");
+                Debug.Log("回合制战斗模式");
+                _gameService.TurnBattleStart();
             }
 
             // 5. 绘制第二个按钮（Y坐标 = 第一个按钮Y + 按钮高度 + 间距）
