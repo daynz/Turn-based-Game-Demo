@@ -8,7 +8,6 @@ namespace BH.Framework.Enums
         SystemEvent,
         GameEvent,
         UIEvent,
-        GameplayEvent,
         BattleEvent,
         TurnEvent,
         UnitsEvent,

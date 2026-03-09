@@ -61,7 +61,7 @@ namespace BH.Framework.Infrastructure.Resource.Services
 
         public void Initialize()
         {
-            _logService.Info("初始化");
+            _logService.Info("初始化完成");
         }
 
         #endregion

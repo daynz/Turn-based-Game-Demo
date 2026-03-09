@@ -2,8 +2,6 @@ using BH.Framework.Infrastructure.DI.Attributes;
 using BH.Framework.Infrastructure.Events.Core;
 using BH.Framework.Infrastructure.Logging.Core;
 using BH.GameSystems.BattleSystem.Enums;
-using BH.GameSystems.BattleSystem.Events.EventDamageCalculator;
-using BH.GameSystems.BattleSystem.Events.EventUnits;
 using BH.GameSystems.BattleSystem.Manager;
 using BH.GameSystems.BattleSystem.Systems.TurnSystem.Base;
 

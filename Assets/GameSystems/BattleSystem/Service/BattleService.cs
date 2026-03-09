@@ -1,13 +1,14 @@
 using System.Collections.Generic;
 using BH.Framework.Infrastructure.DI.Attributes;
 using BH.Framework.Infrastructure.Events.Core;
+using BH.Framework.Infrastructure.Events.Data;
 using BH.Framework.Infrastructure.Events.Interfaces;
 using BH.Framework.Infrastructure.Logging.Core;
 using BH.Framework.Infrastructure.Logging.Interfaces;
 using BH.Framework.Interfaces;
 using BH.Framework.Singleton;
 using BH.GameSystems.BattleSystem.Config;
-using BH.GameSystems.BattleSystem.Events.EventBattle;
+using BH.GameSystems.BattleSystem.Events;
 
 namespace BH.GameSystems.BattleSystem.Service
 {
@@ -51,11 +52,11 @@ namespace BH.GameSystems.BattleSystem.Service
         {
             if (_isBattleActive)
             {
-                _logger.Warning("[BattleManager] 战斗正在进行中，无法重新初始化",Name);
+                _logger.Warning("[BattleManager] 战斗正在进行中，无法重新初始化", Name);
                 return;
             }
 
-            _logger.Info($"[{GetType().Name}] 开始初始化战斗",Name);
+            _logger.Info($"[{GetType().Name}] 开始初始化战斗", Name);
 
             // 获取或创建服务实例
             _unitService = UnitService.Instance;
@@ -87,12 +88,12 @@ namespace BH.GameSystems.BattleSystem.Service
 
             _isBattleActive = true;
 
-            _eventService.Publish(
-                EventBuilder.Create<BattleStartEvent>()
-                    .WithSender(this)
-                    .Build());
+            _eventService.Publish(EventBuilder.CreateForEmptyData<BattleStartEvent>()
+                .WithSender(this)
+                .Build()
+            );
 
-            _logger.Info("[BattleService] 初始化完成，战斗已激活。",Name);
+            _logger.Info("[BattleService] 初始化完成，战斗已激活。", Name);
         }
     }
 }

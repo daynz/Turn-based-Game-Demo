@@ -1,4 +1,5 @@
 using BH.Framework.Infrastructure.Events.Core;
+using BH.Framework.Infrastructure.Events.Installers;
 using BH.Framework.Infrastructure.Logging.Core;
 using BH.Framework.Infrastructure.Resource.Services;
 using BH.Framework.Managers;
@@ -12,8 +13,8 @@ namespace BH.Framework.Installers
         public override void InstallBindings()
         {
             // ========== 1. 核心服务绑定（合并 LogService 的多契约绑定） ==========
-            Container.BindInterfacesAndSelfTo<LogService>() // 具体实现：LogService
-                .AsSingle() // 仅一次 AsSingle()，标记 LogService 单例
+            Container.BindInterfacesAndSelfTo<LogService>()
+                .AsSingle()
                 .NonLazy();
 
             // ========== 2. 地址化服务绑定（同理合并） ==========
@@ -25,14 +26,8 @@ namespace BH.Framework.Installers
             Container.BindInterfacesAndSelfTo<ResourceService>()
                 .AsSingle()
                 .NonLazy();
-
-            Container.BindInterfacesAndSelfTo<EventBus>()
-                .AsSingle()
-                .NonLazy();
             
-            Container.BindInterfacesAndSelfTo<EventService>()
-                .AsSingle()
-                .NonLazy();
+            Container.Install<EventInstaller>();
 
             // ========== 4. 游戏生命周期管理器绑定（同理合并） ==========
             Container.BindInterfacesAndSelfTo<GameService>()

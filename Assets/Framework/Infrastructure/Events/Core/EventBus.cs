@@ -5,220 +5,182 @@ using System.Threading.Tasks;
 using BH.Framework.Enums;
 using BH.Framework.Infrastructure.Events.Interfaces;
 using BH.Framework.Infrastructure.Logging.Core;
-using UnityEngine;
+using BH.Framework.Infrastructure.Logging.Interfaces;
 using Zenject;
 using EventType = BH.Framework.Enums.EventType;
 
 namespace BH.Framework.Infrastructure.Events.Core
 {
-    /// <summary>
-    /// 事件总线，负责管理通道和事件路由
-    /// </summary>
     [Serializable]
-    public class EventBus : IEventBus, IInitializable, IDisposable
+    public class EventBus : IEventBus
     {
-        #region 私有字段
-
         private readonly ConcurrentDictionary<EventType, EventChannel> _channels = new();
         private const EventType DefaultChannel = EventType.SystemEvent;
 
-        [Inject] private LogService LOGService { get; set; }
-
-        // todo: config加载
-
-        #endregion
-
-        #region 公共属性
-
-        public bool IsInitialized { get; private set; } = true;
+        [Inject] private ILogService LogService { get; set; }
+        [Inject] private EventChannel.Factory _channelFactory;
+        public bool IsInitialized { get; private set; }
 
         public void Initialize()
         {
-            // 默认初始化
-            var allEventTypes = Enum.GetValues(typeof(EventType));
-            foreach (var type in allEventTypes)
+            if (IsInitialized) return;
+            // 初始化所有枚举类型的通道
+            foreach (EventType type in Enum.GetValues(typeof(EventType)))
             {
-                CreateChannel((EventType)type);
+                CreateChannel(type);
             }
+
+            IsInitialized = true;
+            LogService.EventLog("[EventBus] 初始化完成");
         }
-
-        public IEnumerable<EventChannel> GetAllChannels() => _channels.Values;
-
-        #endregion
 
         #region 通道管理
 
-        /// <summary>
-        /// 创建通道
-        /// </summary>
         public EventChannel CreateChannel(EventType channelType, EventPriority priority = EventPriority.Normal,
             int maxQueueSize = 1000)
         {
-            var channel = new EventChannel(channelType, priority, maxQueueSize);
+            if (_channels.TryGetValue(channelType, out var ch))
+            {
+                LogService.EventLog($"[EventBus] 通道已存在: {channelType}");
+                return ch;
+            }
+            
+            var channel = _channelFactory.Create(channelType);
             _channels[channelType] = channel;
-
+            LogService.EventLog($"[EventBus] 创建通道: {channelType}");
             return channel;
         }
 
-        /// <summary>
-        /// 获取通道
-        /// </summary>
         public EventChannel GetChannel(EventType channelType)
         {
             _channels.TryGetValue(channelType, out var channel);
             return channel;
         }
 
-        /// <summary>
-        /// 启用所有通道
-        /// </summary>
-        public void EnableAllChannels()
+        public EventChannel GetOrCreateChannel(EventType channelType)
         {
-            foreach (var ch in _channels.Values)
-                ch.IsEnabled = true;
+            return GetChannel(channelType) ?? CreateChannel(channelType);
         }
 
-        /// <summary>
-        /// 禁用所有通道
-        /// </summary>
-        public void DisableAllChannels()
-        {
-            foreach (var ch in _channels.Values)
-                ch.IsEnabled = false;
-        }
+        public IEnumerable<EventChannel> GetAllChannels() => _channels.Values;
+        public int ChannelCount => _channels.Values.Count;
 
         #endregion
 
-        #region 发布事件
+        #region 事件发布
 
-        /// <summary>
-        /// 发布事件到指定通道
-        /// </summary>
-        public void Publish<T>(T eventData, EventType eventType) where T : IEventData
+        public void Publish<T>(T eventData, EventType channelType) where T : IEvent<IEventData>
         {
-            var channel = GetChannel(eventType);
+            if (eventData == null) throw new ArgumentNullException(nameof(eventData));
+            var channel = GetChannel(channelType);
             if (channel == null)
             {
-                LOGService.EventLog($"通道不存在: {eventType}");
+                LogService.EventLog($"[EventBus] 发布失败：通道不存在 {channelType}");
+                return;
+            }
+
+            if (!channel.IsEnabled)
+            {
+                LogService.EventLog($"[EventBus] 发布失败：通道已禁用 {channelType}");
                 return;
             }
 
             channel.Enqueue(eventData);
-            if (LOGService == null)
-            {
-                Debug.Log("LogService注入失败");
-            }
-            else
-            {
-                LOGService.EventLog($"发送事件{typeof(T).Name}");
-            }
+            LogService.EventLog($"[EventBus] 发布事件 {typeof(T).Name} 到通道 {channelType}");
         }
 
-        /// <summary>
-        /// 发布事件（自动根据事件的目标通道路由）
-        /// </summary>
-        public void Publish<T>(T eventData) where T : IEventData
+        public void Publish<T>(T eventData) where T : IEvent<IEventData>
         {
-            Publish(eventData, eventData.EventType == EventType.None ? DefaultChannel : eventData.EventType);
+            if (eventData == null) throw new ArgumentNullException(nameof(eventData));
+            var targetChannel = eventData.EventType == EventType.None ? DefaultChannel : eventData.EventType;
+            Publish(eventData, targetChannel);
         }
 
         #endregion
 
-        #region 订阅管理
+        #region 事件订阅
 
-        /// <summary>
-        /// 订阅事件到指定通道（同步）
-        /// </summary>
-        public EventSubscription Subscribe<T>(EventType channelType, Action<T> handler, EventPriority priority = 0,
-            object owner = null, bool isOnce = false) where T : IEventData
+        public EventSubscription Subscribe<T>(EventType channelType, Action<T> handler,
+            EventPriority priority = EventPriority.Normal, object owner = null, bool isOnce = false)
+            where T : class, IEvent<IEventData>
         {
+            if (handler == null) throw new ArgumentNullException(nameof(handler));
             var channel = GetOrCreateChannel(channelType);
-            return channel?.Subscribe(handler, priority, owner, isOnce);
+            var subscription = channel.Subscribe(handler, priority, owner, isOnce);
+            LogService.EventLog($"[EventBus] 订阅同步事件 {typeof(T).Name} 到通道 {channelType}");
+            return subscription;
         }
 
-        /// <summary>
-        /// 订阅异步事件到指定通道
-        /// </summary>
         public EventSubscription SubscribeAsync<T>(EventType channelType, Func<T, Task> handler,
-            EventPriority priority = 0, object owner = null, bool isOnce = false) where T : IEventData
+            EventPriority priority = EventPriority.Normal, object owner = null, bool isOnce = false)
+            where T : class, IEvent<IEventData>
         {
+            if (handler == null) throw new ArgumentNullException(nameof(handler));
             var channel = GetOrCreateChannel(channelType);
-            return channel?.SubscribeAsync(handler, priority, owner, isOnce);
+            var subscription = channel.SubscribeAsync(handler, priority, owner, isOnce);
+            LogService.EventLog($"[EventBus] 订阅异步事件 {typeof(T).Name} 到通道 {channelType}");
+            return subscription;
         }
 
-        /// <summary>
-        /// 订阅事件到默认通道（根据事件类型自动选择）
-        /// </summary>
-        public EventSubscription Subscribe<T>(Action<T> handler, EventPriority priority = 0, object owner = null,
-            bool isOnce = false) where T : IEventData
+        public EventSubscription Subscribe<T>(Action<T> handler, EventPriority priority = EventPriority.Normal,
+            object owner = null, bool isOnce = false)
+            where T : class, IEvent<IEventData>
         {
             var channelType = EventSubscription.GetEventTypeFromData<T>();
             return Subscribe(channelType, handler, priority, owner, isOnce);
         }
 
-        /// <summary>
-        /// 订阅异步事件到默认通道
-        /// </summary>
-        public EventSubscription SubscribeAsync<T>(Func<T, Task> handler, EventPriority priority = 0,
-            object owner = null,
-            bool isOnce = false) where T : IEventData
+        public EventSubscription SubscribeAsync<T>(Func<T, Task> handler, EventPriority priority = EventPriority.Normal,
+            object owner = null, bool isOnce = false)
+            where T : class, IEvent<IEventData>
         {
             var channelType = EventSubscription.GetEventTypeFromData<T>();
             return SubscribeAsync(channelType, handler, priority, owner, isOnce);
         }
 
-        /// <summary>
-        /// 取消订阅
-        /// </summary>
+        #endregion
+
+        #region 取消订阅
+
         public void Unsubscribe(EventSubscription subscription, EventType? channelType = null)
         {
-            if (subscription == null) return;
+            if (subscription == null || subscription.IsDisposed) return;
 
             if (channelType.HasValue)
             {
-                var ch = GetChannel(channelType.Value);
-                ch?.Unsubscribe(subscription);
+                var channel = GetChannel(channelType.Value);
+                channel?.Unsubscribe(subscription);
+                LogService.EventLog($"[EventBus] 取消订阅：通道 {channelType.Value} 中的 {subscription.GetType().Name}");
             }
             else
             {
-                foreach (var ch in _channels.Values)
-                    ch.Unsubscribe(subscription);
+                foreach (var channel in _channels.Values)
+                    channel.Unsubscribe(subscription);
+                LogService.EventLog($"[EventBus] 取消订阅：所有通道中的 {subscription.GetType().Name}");
             }
+
+            subscription.Dispose();
         }
 
-        /// <summary>
-        /// 取消某所有者所有订阅（在所有通道中）
-        /// </summary>
         public void UnsubscribeAll(object owner)
         {
-            if (owner == null) return;
-            foreach (var ch in _channels.Values)
-                ch.UnsubscribeAll(owner);
-        }
-
-        private EventChannel GetOrCreateChannel(EventType channelType)
-        {
-            if (!_channels.TryGetValue(channelType, out var channel))
-            {
-                channel = CreateChannel(channelType);
-            }
-
-            return channel;
+            if (owner == null) throw new ArgumentNullException(nameof(owner));
+            foreach (var channel in _channels.Values)
+                channel.UnsubscribeAll(owner);
+            LogService.EventLog($"[EventBus] 取消所有者 {owner.GetType().Name} 的所有订阅");
         }
 
         #endregion
 
-        #region 处理事件
+        #region 事件处理
 
-        /// <summary>
-        /// 处理所有已知通道上的事件。
-        /// </summary>
-        /// <param name="maxEventsPerChannel">每个通道要处理的最大事件数量。</param>
         public void ProcessAllChannels(int maxEventsPerChannel)
         {
+            if (maxEventsPerChannel < 0) throw new ArgumentOutOfRangeException(nameof(maxEventsPerChannel));
             foreach (var channel in _channels.Values)
             {
-                channel.ProcessQueue(maxEventsPerChannel);
+                if (channel.IsEnabled)
+                    channel.ProcessQueue(maxEventsPerChannel);
             }
         }
 
@@ -228,11 +190,11 @@ namespace BH.Framework.Infrastructure.Events.Core
 
         public void Dispose()
         {
-            foreach (var ch in _channels.Values)
-                ch.Dispose();
+            foreach (var channel in _channels.Values)
+                channel.Dispose();
             _channels.Clear();
             IsInitialized = false;
-            LOGService.EventLog("[EventBus] 已释放");
+            LogService.EventLog("[EventBus] 已释放所有资源");
         }
 
         #endregion

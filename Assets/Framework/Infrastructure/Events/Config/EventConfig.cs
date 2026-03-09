@@ -34,8 +34,6 @@ namespace BH.Framework.Infrastructure.Events.Config
             new EventChannelConfig
                 { channelType = EventType.UIEvent, priority = EventPriority.Normal, maxQueueSize = 100 },
             new EventChannelConfig
-                { channelType = EventType.GameplayEvent, priority = EventPriority.Normal, maxQueueSize = 100 },
-            new EventChannelConfig
                 { channelType = EventType.SystemEvent, priority = EventPriority.Low, maxQueueSize = 100 },
             new EventChannelConfig
                 { channelType = EventType.DebugEvent, priority = EventPriority.Background, maxQueueSize = 100 }

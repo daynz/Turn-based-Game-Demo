@@ -117,3 +117,6 @@ InitTestScene*.unity*
 *.ttf
 *.otf
 *.prefab
+
+Assets/Plugins/MFPS/
+Assets/Art

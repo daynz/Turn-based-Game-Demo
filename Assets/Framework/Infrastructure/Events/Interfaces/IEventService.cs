@@ -1,122 +1,102 @@
 using System;
 using System.Threading.Tasks;
 using BH.Framework.Enums;
+using BH.Framework.Infrastructure.Events.Base;
 using BH.Framework.Infrastructure.Events.Core;
-using Zenject;
 
 namespace BH.Framework.Infrastructure.Events.Interfaces
 {
     /// <summary>
-    /// 事件系统的核心操作接口
+    /// 事件服务接口：业务层入口，封装事件系统生命周期+全局策略，底层委托给IEventBus
     /// </summary>
-    public interface IEventService : IInitializable, IDisposable
+    public interface IEventService : IDisposable
     {
         /// <summary>
-        /// 启用事件系统。
+        /// 事件系统是否启用
+        /// </summary>
+        bool IsEnable { get; }
+
+        #region 生命周期管理
+
+        /// <summary>
+        /// 初始化事件系统（含EventBus初始化）
+        /// </summary>
+        void Initialize();
+
+        /// <summary>
+        /// 启用事件系统（所有通道启用）
         /// </summary>
         void Enable();
 
         /// <summary>
-        /// 禁用事件系统。
+        /// 禁用事件系统（所有通道禁用）
         /// </summary>
         void Disable();
 
-        /// <summary>
-        /// 发布一个事件到其默认关联的通道。
-        /// </summary>
-        /// <typeparam name="T">事件数据的类型。</typeparam>
-        /// <param name="eventData">要发布的事件数据实例。</param>
-        void Publish<T>(T eventData) where T : IEventData;
+        #endregion
+
+        #region 业务层事件操作（封装IEventBus）
 
         /// <summary>
-        /// 发布一个事件到指定的通道。
+        /// 发布事件到默认通道
         /// </summary>
-        /// <typeparam name="T">事件数据的类型。</typeparam>
-        /// <param name="eventData">要发布的事件数据实例。</param>
-        /// <param name="channelType">目标事件通道的类型。</param>
-        void Publish<T>(T eventData, EventType channelType) where T : IEventData;
+        void Publish<T>(T eventData) where T : class, IEvent<IEventData>;
 
         /// <summary>
-        /// 订阅一个事件（同步处理器）到其默认关联的通道。
+        /// 发布事件到指定通道
         /// </summary>
-        /// <typeparam name="T">事件数据的类型。</typeparam>
-        /// <param name="handler">处理事件的同步方法。</param>
-        /// <param name="priority">处理器的优先级。</param>
-        /// <param name="owner">订阅者对象，可用于批量取消订阅。</param>
-        /// <param name="isOnce">是否为一次性订阅。</param>
-        /// <returns>订阅的句柄，可用于取消订阅。</returns>
-        EventSubscription Subscribe<T>(
-            Action<T> handler,
-            EventPriority priority = EventPriority.Normal,
-            object owner = null,
-            bool isOnce = false) where T : IEventData;
+        void Publish<T>(T eventData, EventType channelType) where T : class, IEvent<IEventData>;
 
         /// <summary>
-        /// 订阅一个事件（异步处理器）到其默认关联的通道。
+        /// 订阅默认通道的同步事件
         /// </summary>
-        /// <typeparam name="T">事件数据的类型。</typeparam>
-        /// <param name="handler">处理事件的异步方法。</param>
-        /// <param name="priority">处理器的优先级。</param>
-        /// <param name="owner">订阅者对象，可用于批量取消订阅。</param>
-        /// <param name="isOnce">是否为一次性订阅。</param>
-        /// <returns>订阅的句柄，可用于取消订阅。</returns>
-        EventSubscription SubscribeAsync<T>(
-            Func<T, Task> handler,
-            EventPriority priority = EventPriority.Normal,
-            object owner = null,
-            bool isOnce = false) where T : IEventData;
+        EventSubscription Subscribe<T>(Action<T> handler, EventPriority priority = EventPriority.Normal,
+            object owner = null, bool isOnce = false)
+            where T : class, IEvent<IEventData>;
 
         /// <summary>
-        /// 订阅一个事件（同步处理器）到指定的通道。
+        /// 订阅默认通道的异步事件
         /// </summary>
-        /// <typeparam name="T">事件数据的类型。</typeparam>
-        /// <param name="channelType">目标事件通道的类型。</param>
-        /// <param name="handler">处理事件的同步方法。</param>
-        /// <param name="priority">处理器的优先级。</param>
-        /// <param name="owner">订阅者对象，可用于批量取消订阅。</param>
-        /// <param name="isOnce">是否为一次性订阅。</param>
-        /// <returns>订阅的句柄，可用于取消订阅。</returns>
-        EventSubscription SubscribeToChannel<T>(
-            EventType channelType,
-            Action<T> handler,
-            EventPriority priority = EventPriority.Normal,
-            object owner = null,
-            bool isOnce = false) where T : IEventData;
+        EventSubscription SubscribeAsync<T>(Func<T, Task> handler, EventPriority priority = EventPriority.Normal,
+            object owner = null, bool isOnce = false)
+            where T : class, IEvent<IEventData>;
 
         /// <summary>
-        /// 取消指定的订阅。
+        /// 订阅指定通道的同步事件
         /// </summary>
-        /// <param name="subscription">要取消的订阅句柄。</param>
-        /// <param name="channelType">可选，指定在哪个通道中取消订阅。如果为 null，则在所有通道中取消。</param>
+        EventSubscription SubscribeToChannel<T>(EventType channelType, Action<T> handler,
+            EventPriority priority = EventPriority.Normal, object owner = null, bool isOnce = false)
+            where T : class, IEvent<IEventData>;
+
+        /// <summary>
+        /// 取消订阅
+        /// </summary>
         void Unsubscribe(EventSubscription subscription, EventType? channelType = null);
 
         /// <summary>
-        /// 取消指定所有者的所有订阅。
+        /// 取消指定所有者的所有订阅
         /// </summary>
-        /// <param name="owner">订阅者对象。</param>
         void UnsubscribeAll(object owner);
 
+        #endregion
+
+        #region 全局事件处理策略
+
         /// <summary>
-        /// 获取指定类型的事件通道。
+        /// 处理所有通道事件（封装全局策略，如每帧最大处理数）
         /// </summary>
-        /// <param name="channelType">事件通道的类型。</param>
-        /// <returns>对应的事件通道实例，如果不存在则返回 null。</returns>
+        /// <param name="maxEventsPerFrame">每帧处理的事件总数上限（而非每个通道）</param>
+        void ProcessChannels(int maxEventsPerFrame);
+
+        #endregion
+
+        #region 通道管理（只读封装）
+
+        /// <summary>
+        /// 获取指定通道（业务层仅只读，创建/修改由底层IEventBus管理）
+        /// </summary>
         EventChannel GetChannel(EventType channelType);
 
-        /// <summary>
-        /// 创建一个指定类型的事件通道。
-        /// </summary>
-        /// <param name="channelType">事件通道的类型。</param>
-        /// <param name="priority">通道的默认优先级。</param>
-        /// <param name="maxQueueSize">通道队列的最大容量。</param>
-        /// <returns>新创建的事件通道实例。</returns>
-        EventChannel CreateChannel(EventType channelType, EventPriority priority = EventPriority.Normal,
-            int maxQueueSize = 1000);
-
-        /// <summary>
-        /// 处理所有通道中的待处理事件。
-        /// </summary>
-        /// <param name="maxEventsPerFrame">每帧最多处理的事件总数。</param>
-        void ProcessChannels(int maxEventsPerFrame);
+        #endregion
     }
 }

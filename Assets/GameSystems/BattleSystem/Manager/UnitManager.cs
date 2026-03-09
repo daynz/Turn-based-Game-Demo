@@ -7,7 +7,7 @@ using BH.Framework.Infrastructure.Logging.Core;
 using BH.Framework.Singleton;
 using BH.GameSystems.BattleSystem.Config;
 using BH.GameSystems.BattleSystem.Enums;
-using BH.GameSystems.BattleSystem.Events.EventUnits;
+using BH.GameSystems.BattleSystem.Events;
 using BH.GameSystems.BattleSystem.Interfaces;
 using BH.GameSystems.BattleSystem.Systems.UnitSystem.Base;
 using BH.GameSystems.BattleSystem.Systems.UnitSystem.Characters.Data;
@@ -64,12 +64,12 @@ namespace BH.GameSystems.BattleSystem.Manager
                 characterParty.Add(characterFactory.CreateFromData(unitData));
             }
 
-            _eventService.Publish(
-                EventBuilder.Create<LoadUnitDataCompletedEvent>()
-                    .WithSender(this)
-                    .WithData(UnitFaction.Character)
-                    .Build()
-            );
+            // _eventService.Publish(
+            //     EventBuilder.Create<LoadUnitDataCompletedEvent>()
+            //         .WithSender(this)
+            //         .WithData(UnitFaction.Character)
+            //         .Build()
+            // );
         }
 
         private T GetEntityFromDatabaseById<T>(string id)
