@@ -1,6 +1,6 @@
 namespace BH.GameSystems.BattleSystem.Enums
 {
-    public enum TurnPhase
+    public enum TurnStateType
     {
         NotStarted,
         Preparation,

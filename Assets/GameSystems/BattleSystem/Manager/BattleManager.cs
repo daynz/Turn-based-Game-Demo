@@ -1,15 +1,4 @@
-using System;
-using BH.Framework.Infrastructure.DI.Attributes;
-using BH.Framework.Infrastructure.Events.Base;
-using BH.Framework.Infrastructure.Events.Core;
-using BH.Framework.Infrastructure.Logging.Core;
 using BH.Framework.Singleton;
-using BH.GameSystems.BattleSystem.Config;
-using BH.GameSystems.BattleSystem.Enums;
-using BH.GameSystems.BattleSystem.Systems.ActionQueueSystem;
-using UnityEngine;
-using EventBuilder = BH.Framework.Infrastructure.Events.Core.EventBuilder;
-using EventType = BH.Framework.Enums.EventType;
 
 namespace BH.GameSystems.BattleSystem.Manager
 {

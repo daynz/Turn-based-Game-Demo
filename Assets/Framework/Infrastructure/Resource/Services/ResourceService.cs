@@ -1,222 +1,1043 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using BH.Framework.Events;
+using BH.Framework.Infrastructure.Events.Core;
+using BH.Framework.Infrastructure.Events.Interfaces;
 using BH.Framework.Infrastructure.Logging.Interfaces;
+using BH.Framework.Infrastructure.Resource.Data;
+using BH.Framework.Infrastructure.Resource.Data.Events;
 using BH.Framework.Infrastructure.Resource.Interfaces;
-using Google.Protobuf;
+using JetBrains.Annotations;
 using Newtonsoft.Json;
 using UnityEngine;
+using UnityEngine.ResourceManagement.ResourceProviders;
+using UnityEngine.SceneManagement;
 using Zenject;
 using Object = UnityEngine.Object;
+using ResourceLoadStatus = BH.Framework.Infrastructure.Resource.Data.ResourceLoadStatus;
 
 namespace BH.Framework.Infrastructure.Resource.Services
 {
     /// <summary>
-    /// 游戏资源管理器
+    /// 游戏资源管理高层服务类
+    /// <para>核心能力：</para>
+    /// <list type="bullet">
+    /// <item>基于 LRU 策略的常驻资源缓存管理</item>
+    /// <item>JSON 配置文件加载与缓存</item>
+    /// <item>场景加载/卸载/激活的统一管理</item>
+    /// <item>资源预加载分组管理</item>
+    /// <item>类型安全的资源操作与异常处理</item>
+    /// </list>
+    /// <para>依赖：<see cref="IAddressableService"/> 底层资源服务、<see cref="ILogService"/> 日志服务、<see cref="IEventService"/> 事件服务</para>
     /// </summary>
-    [Serializable]
+    [UsedImplicitly]
     public class ResourceService : IResourceService
     {
-        #region 依赖注入字段
-
-        [Inject]private readonly IAddressableService _addressableService;
-        [Inject]private readonly ILogService _logService;
+        #region 依赖注入 & 配置
 
         /// <summary>
-        /// 与 Addressables 系统交互的底层管理器。
+        /// 底层 Addressables 资源服务（依赖注入）
         /// </summary>
-        private ProtobufService _protobufService;
+        [Inject] private readonly IAddressableService _addressableService;
+
+        /// <summary>
+        /// 日志服务（依赖注入）
+        /// </summary>
+        [Inject] private readonly ILogService _logService;
+
+        /// <summary>
+        /// 事件服务（依赖注入）
+        /// </summary>
+        [Inject] private readonly IEventService _eventService;
+
+        /// <summary>
+        /// 资源服务配置项（依赖注入）
+        /// </summary>
+        private readonly ResourceServiceConfig _config = new();
 
         #endregion
 
-        #region 私有字段 (缓存/映射表)
+        #region 核心缓存 & 映射
 
         /// <summary>
-        /// 资源地址映射表。将资源的逻辑名称（如 "PlayerAvatar"）映射到 Addressables 系统中的具体地址。
-        /// 此映射表可以从外部配置文件加载。
+        /// 线程安全锁对象，保护多线程下的缓存/映射操作
         /// </summary>
-        private readonly Dictionary<string, string> _resourcePaths = new();
+        private readonly object _lockObj = new();
 
         /// <summary>
-        /// 常驻内存缓存。存储需要长期驻留在内存中的资源对象。
-        /// Key: 资源的逻辑名称, Value: 资源对象实例 (UnityEngine.Object)。
+        /// 常驻资源缓存字典（LRU 淘汰策略）
         /// </summary>
-        private readonly Dictionary<string, Object> _persistentCache = new();
+        /// <remarks>
+        /// Key: AssetKeys.AddressableNames 常量定义的资源地址<br/>
+        /// Value: (资源实例, 最后访问时间戳) - 时间戳用于 LRU 淘汰
+        /// </remarks>
+        private readonly Dictionary<string, (Object Asset, long LastAccessTick)> _persistentCache = new();
 
         /// <summary>
-        /// 预加载资源组。允许将资源按功能或场景分组，以便提前批量加载。
-        /// Key: 预加载组的名称 (如 "Scene_Level1"), Value: 该组包含的资源逻辑名称列表。
+        /// 配置文件缓存字典（LRU 淘汰策略）
         /// </summary>
+        /// <remarks>
+        /// Key: AssetKeys.AddressableNames 常量定义的配置地址<br/>
+        /// Value: (配置实例, 最后访问时间戳) - 时间戳用于 LRU 淘汰
+        /// </remarks>
+        private readonly Dictionary<string, (object Config, long LastAccessTick)> _configCache = new();
+
+        /// <summary>
+        /// 已加载场景映射表
+        /// </summary>
+        /// <remarks>
+        /// Key: 场景逻辑名称（业务层使用）<br/>
+        /// Value: AssetKeys.AddressableNames 常量定义的场景地址（底层使用）
+        /// </remarks>
+        private readonly Dictionary<string, string> _loadedScenes = new();
+
+        /// <summary>
+        /// 预加载资源组映射表
+        /// </summary>
+        /// <remarks>
+        /// Key: 预加载组名称<br/>
+        /// Value: AssetKeys.AddressableNames 常量列表
+        /// </remarks>
         private readonly Dictionary<string, List<string>> _preloadGroups = new();
 
+        #endregion
+
+        #region 取消令牌 & 生命周期
+
         /// <summary>
-        /// 配置数据缓存。缓存已加载并反序列化的配置对象，避免重复加载和解析。
-        /// Key: 配置文件的逻辑名称, Value: 反序列化后的配置对象。
+        /// 全局取消令牌源，用于取消所有未完成的异步资源操作
         /// </summary>
-        private readonly Dictionary<string, object> _configCache = new();
+        private CancellationTokenSource _globalCts;
+
+        /// <summary>
+        /// 服务初始化状态标记
+        /// </summary>
+        private bool _isInitialized;
+
+        /// <summary>
+        /// 服务释放状态标记（防止重复释放）
+        /// </summary>
+        private bool _isDisposed;
 
         #endregion
 
-        #region 接口实现
+        #region 生命周期管理
 
+        /// <summary>
+        /// 初始化资源服务
+        /// </summary>
+        /// <remarks>
+        /// 执行逻辑：<br/>
+        /// 1. 初始化全局取消令牌<br/>
+        /// 2. 初始化底层 Addressables 服务<br/>
+        /// 3. 注册事件监听<br/>
+        /// 4. 标记初始化完成状态
+        /// </remarks>
         public void Initialize()
         {
-            _logService.Info("初始化完成");
+            if (_isInitialized)
+            {
+                _logService.Warning("[ResourceService] 已初始化，跳过重复执行");
+                return;
+            }
+
+            _globalCts = new CancellationTokenSource();
+
+            _isInitialized = true;
+            _logService.Info($"[ResourceService] 初始化完成（缓存容量: {_config.PersistentCacheMaxCount}）");
+        }
+
+        /// <summary>
+        /// 启用资源服务
+        /// </summary>
+        /// <exception cref="InvalidOperationException">服务未初始化时抛出警告日志</exception>
+        public void Enable()
+        {
+            if (!_isInitialized)
+            {
+                _logService.Error("[ResourceService] 未初始化，无法启用");
+                return;
+            }
+
+            // 注册事件监听
+            SubscribeEvents();
+
+            _logService.Info("[ResourceService] 已启用");
+        }
+
+        /// <summary>
+        /// 禁用资源服务
+        /// </summary>
+        /// <remarks>
+        /// 执行逻辑：<br/>
+        /// 1. 取消所有未完成的异步操作<br/>
+        /// 2. 清理预加载组临时状态<br/>
+        /// 3. 输出禁用日志
+        /// </remarks>
+        public void Disable()
+        {
+            if (!_isInitialized) return;
+
+            // 取消所有未完成操作
+            _globalCts.Cancel();
+            UnsubscribeEvents();
+            // 清理临时状态
+            lock (_lockObj)
+            {
+                _preloadGroups.Clear();
+            }
+
+            _logService.Info("[ResourceService] 已禁用");
+        }
+
+        /// <summary>
+        /// 释放资源服务（实现 IDisposable 接口）
+        /// </summary>
+        /// <remarks>
+        /// 托管资源释放逻辑：<br/>
+        /// 1. 取消并释放全局取消令牌<br/>
+        /// 2. 清理所有缓存/映射表<br/>
+        /// 3. 释放底层 Addressables 服务<br/>
+        /// 4. 取消事件监听<br/>
+        /// 5. 标记释放完成状态
+        /// </remarks>
+        public void Dispose()
+        {
+            if (_isDisposed) return;
+            Disable();
+            // 取消全局操作
+            _globalCts?.Dispose();
+            // 清理缓存
+            lock (_lockObj)
+            {
+                _persistentCache?.Clear();
+                _configCache?.Clear();
+                _loadedScenes?.Clear();
+                _preloadGroups?.Clear();
+            }
+
+            _isDisposed = true;
+            _logService.Info("[ResourceService] 已释放所有资源");
+        }
+
+        /// <summary>
+        /// 注册资源服务相关事件监听
+        /// </summary>
+        /// <remarks>当前注册 <see cref="GameCheckModuleStatusEvent"/> 事件，触发预加载流程</remarks>
+        private void SubscribeEvents()
+        {
+            _eventService.Subscribe<ResourcePreLoadEvent>(HandleResourcePreload);
+        }
+
+        /// <summary>
+        /// 取消资源服务相关事件监听
+        /// </summary>
+        private void UnsubscribeEvents()
+        {
+            //_eventService.Unsubscribe<ResourcePreLoadEvent>();
         }
 
         #endregion
 
-        #region 核心工具方法
+        #region 核心事件处理
 
         /// <summary>
-        /// 根据资源的逻辑名称获取其在 Addressables 系统中的地址。
+        /// 处理模块状态检查事件，触发资源预加载流程
         /// </summary>
-        /// <param name="resourceName">资源的逻辑名称。</param>
-        /// <returns>对应的地址字符串；如果未找到映射则返回 null。</returns>
-        public string GetResourceAddress(string resourceName)
+        /// <param name="event">模块状态检查事件参数</param>
+        /// <exception cref="OperationCanceledException">预加载流程被取消时抛出</exception>
+        /// <exception cref="Exception">预加载流程异常时捕获并记录日志</exception>
+        private async void HandleResourcePreload(ResourcePreLoadEvent @event)
         {
-            if (_resourcePaths.TryGetValue(resourceName, out var address))
+            try
             {
-                return address;
-            }
-
-            _logService.Error($"未找到资源名称 '{resourceName}' 的映射地址。");
-            return null;
-        }
-
-        /// <summary>
-        /// 从配置文件加载 _resourcePaths 映射表。
-        /// 此方法在构造函数中被调用，尝试初始化资源路径映射。
-        /// </summary>
-        private void LoadResourcePathsFromConfig()
-        {
-            // 示例路径 (需要在 Addressables Groups 中设置)
-            // const string configPath = "Assets/Addressables/Local/Config/ResourcePaths.json";
-
-            // 由于在构造函数中难以进行异步加载，这里先使用硬编码的默认路径作为回退。
-            // 理想情况下，这个映射文件也应该通过 Addressables 加载。
-            // 例如，你可以为映射文件创建一个 Addressable 标签或地址，如 "ResourcePathMapping"。
-
-            // 尝试从预设的映射文件加载（这里使用硬编码的键名作为示例）
-            const string mappingResourceName = "ResourcePathMapping";
-
-            // 这里是一个简化的回退逻辑。
-            // 更好的方式是在游戏启动流程中异步加载 ResourcePathMapping 文件，
-            // 然后调用一个方法（如 InitResourcePaths(Dictionary<string, string> mapping)）来设置。
-            // 目前，如果没有找到 "ResourcePathMapping"，则使用硬编码。
-
-            // 假设 _resourcePaths 在初始化时已经包含了 "ResourcePathMapping" 的地址
-            // if (_resourcePaths.ContainsKey(mappingResourceName))
-            // {
-            //     string mappingContent = await LoadTextConfigAsStringAsync(mappingResourceName);
-            //     if (!string.IsNullOrEmpty(mappingContent))
-            //     {
-            //         // Parse mappingContent (JSON) into _resourcePaths dictionary
-            //         // e.g., using JsonUtility or JsonConvert
-            //     }
-            // }
-
-            // 硬编码默认路径（用于开发或作为回退）
-            _resourcePaths["Characters"] = "Assets/Addressables/Local/Config/CharacterData/Characters.json";
-            // ... 添加更多默认路径 ...
-
-            _logService.Info("资源路径已从硬编码默认值加载。");
-        }
-
-        /// <summary>
-        /// 手动添加或替换一个资源路径映射。
-        /// 适用于运行时动态添加资源路径，或用于测试和热重载。
-        /// </summary>
-        /// <param name="logicalName">资源的逻辑名称。</param>
-        /// <param name="address">资源在 Addressables 系统中的地址。</param>
-        public void AddOrReplaceResourcePath(string logicalName, string address)
-        {
-            _resourcePaths[logicalName] = address;
-            _logService.Info($"添加/替换资源路径: {logicalName} -> {address}");
-        }
-
-        #endregion
-
-        #region 常驻资源加载/卸载
-
-        /// <summary>
-        /// 根据逻辑名称异步加载一个资源，并将其存储在常驻内存缓存中。
-        /// 如果资源已在缓存中，则直接返回缓存的对象。
-        /// </summary>
-        /// <typeparam name="T">期望加载的资源类型，必须继承自 UnityEngine.Object (如 GameObject, Sprite, AudioClip 等)。</typeparam>
-        /// <param name="resourceName">资源的逻辑名称（例如 "PlayerAvatar"），需在 _resourcePaths 中有对应映射。</param>
-        /// <returns>一个 Task，完成后返回加载或从缓存获取的资源实例；如果加载失败或找不到映射则返回 null。</returns>
-        public async Task<T> LoadPersistentAssetAsync<T>(string resourceName) where T : Object
-        {
-            if (!_resourcePaths.TryGetValue(resourceName, out string address))
-            {
-                _logService.Error($"未找到资源名称 '{resourceName}' 的映射地址。");
-                return null;
-            }
-
-            // 检查资源是否已在常驻缓存中
-            if (_persistentCache.TryGetValue(resourceName, out Object cachedObject))
-            {
-                _logService.Info($"从常驻缓存加载资源: {resourceName} ({address})");
-                if (cachedObject is T typedObject)
+                if (_globalCts.Token.IsCancellationRequested)
                 {
-                    return typedObject;
+                    _logService.Warning("[ResourceService] 预加载流程已取消，跳过执行");
+                    return;
+                }
+
+                _logService.Info("[ResourceService] 开始执行资源配置预加载流程");
+
+                // 执行预加载
+                await PreloadAllResourcesAsync();
+
+                _logService.Info("[ResourceService] 资源配置预加载流程执行完毕");
+            }
+            catch (OperationCanceledException)
+            {
+                _logService.Warning("[ResourceService] 预加载流程被取消");
+            }
+            catch (Exception ex)
+            {
+                _logService.Error($"预加载失败: {ex.Message}");
+
+                // 触发失败回调
+                // //OnResourceLoadFailed?.Invoke("PreloadAll", ex);
+
+                // 发布模块错误事件
+                // _eventService.Publish(EventBuilder.Create<GameModuleErrorEvent>()
+                //     .WithSender(this)
+                //     .WithData(new GameModuleErrorData { ModuleName = "ResourceService", ErrorMsg = errorMsg })
+                //     .Build());
+            }
+        }
+
+        #endregion
+
+        #region 预加载管理
+
+        /// <summary>
+        /// 预加载所有已注册的资源组和核心配置文件
+        /// </summary>
+        /// <returns>异步任务</returns>
+        /// <exception cref="OperationCanceledException">预加载被取消时抛出</exception>
+        /// <exception cref="Exception">预加载异常时捕获并记录日志，重新抛出异常</exception>
+        public async Task PreloadAllResourcesAsync()
+        {
+            if (_globalCts.Token.IsCancellationRequested)
+            {
+                _logService.Warning("[ResourceService] 预加载已取消，跳过执行");
+                return;
+            }
+
+            try
+            {
+                AddPreloadGroup("DefaultPreloadGroup", new List<string>
+                {
+                });
+                AddPreloadGroup("UIPreloadGroup", new List<string>
+                {
+                    AssetKeys.AddressableNames.MainMenuUI
+                });
+
+                var allGroups = GetAllPreloadGroups();
+                var totalGroups = allGroups.Count;
+
+                _logService.Info($"[ResourceService] 开始预加载 {totalGroups} 个资源组");
+
+                // 批量预加载资源组
+                foreach (var groupName in allGroups.TakeWhile(_ => !_globalCts.Token.IsCancellationRequested))
+                {
+                    await PreloadGroupAsync(groupName);
+                }
+
+                // 发布预加载完成事件
+                _eventService.Publish(EventBuilder.CreateForEmptyData<GamePreloadCompleteEvent>()
+                    .WithSender(this)
+                    .Build());
+
+                _logService.Info("[ResourceService] 资源和配置预加载完成");
+            }
+            catch (OperationCanceledException)
+            {
+                _logService.Warning("[ResourceService] 预加载流程被取消");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Error($"预加载异常: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 添加预加载资源组
+        /// </summary>
+        /// <param name="groupName">预加载组名称（非空）</param>
+        /// <param name="resourceNames">AssetKeys.AddressableNames 常量定义的资源地址列表</param>
+        /// <exception cref="ArgumentNullException">资源列表为 null 时输出警告日志</exception>
+        /// <exception cref="ArgumentException">组名称为空时输出错误日志</exception>
+        public void AddPreloadGroup(string groupName, List<string> resourceNames)
+        {
+            if (string.IsNullOrEmpty(groupName))
+            {
+                _logService.Error("[ResourceService] 预加载组名称为空，无法添加");
+                return;
+            }
+
+            if (resourceNames == null || resourceNames.Count == 0)
+            {
+                _logService.Warning($"[ResourceService] 预加载组 '{groupName}' 传入空资源列表");
+                return;
+            }
+
+            List<string> newResources;
+            lock (_lockObj)
+            {
+                if (!_preloadGroups.ContainsKey(groupName))
+                {
+                    _preloadGroups[groupName] = new List<string>();
+                }
+
+                // 去重添加
+                newResources = resourceNames
+                    .Where(name => !string.IsNullOrEmpty(name))
+                    .Except(_preloadGroups[groupName])
+                    .ToList();
+
+                _preloadGroups[groupName].AddRange(newResources);
+            }
+
+            _logService.Info(
+                $"[ResourceService] 预加载组 '{groupName}' 新增 {newResources.Count} 个资源（总计: {_preloadGroups[groupName].Count}）");
+        }
+
+        /// <summary>
+        /// 异步加载指定预加载组的所有资源
+        /// </summary>
+        /// <param name="groupName">预加载组名称（非空）</param>
+        /// <param name="cancellationToken">取消令牌（可选）</param>
+        /// <returns>异步任务</returns>
+        /// <remarks>
+        /// 执行逻辑：<br/>
+        /// 1. 参数校验 and 线程安全获取资源列表<br/>
+        /// 2. 分批并行加载资源（优化性能）<br/>
+        /// 3. 单个资源加载异常不影响整组加载<br/>
+        /// 4. 支持取消操作
+        /// </remarks>
+        public async Task PreloadGroupAsync(string groupName, CancellationToken cancellationToken = default)
+        {
+            // 基础校验
+            if (string.IsNullOrEmpty(groupName))
+            {
+                _logService.Error("[ResourceService] 预加载组名称为空，无法加载");
+                return;
+            }
+
+            // 线程安全获取资源列表
+            List<string> resourceList;
+            lock (_lockObj)
+            {
+                if (!_preloadGroups.TryGetValue(groupName, out resourceList))
+                {
+                    _logService.Warning($"[ResourceService] 预加载组 '{groupName}' 不存在");
+                    return;
+                }
+
+                resourceList = new List<string>(resourceList); // 复制避免遍历中修改
+            }
+
+            if (resourceList.Count == 0)
+            {
+                _logService.Warning($"[ResourceService] 预加载组 '{groupName}' 无资源可加载");
+                return;
+            }
+
+            // 合并取消令牌
+            var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_globalCts.Token, cancellationToken);
+            var totalCount = resourceList.Count;
+            var completedCount = 0f;
+
+            try
+            {
+                _logService.Info($"[ResourceService] 开始预加载组 '{groupName}'（{totalCount} 个资源）");
+
+                //todo:
+                int preloadBatchSize = 0;
+                //preloadBatchSize = _config.PreloadBatchSize;
+                // 分批并行加载（优化性能）
+                for (int i = 0; i < totalCount; i += preloadBatchSize)
+                {
+                    linkedCts.Token.ThrowIfCancellationRequested();
+
+                    var batch = resourceList.Skip(i).Take(preloadBatchSize).ToList();
+                    var batchTasks = new List<Task>();
+
+                    foreach (var resourceName in batch)
+                    {
+                        // 加载为常驻资源
+                        batchTasks.Add(LoadPersistentAssetAsync<Object>(resourceName, linkedCts.Token)
+                            .ContinueWith(task =>
+                            {
+                                lock (_lockObj) completedCount++;
+                                //OnPreloadProgress?.Invoke(completedCount / totalCount);
+
+                                // 捕获单资源加载异常
+                                if (task.Exception != null)
+                                {
+                                    _logService.Error(
+                                        $"[ResourceService] 预加载组 '{groupName}' 资源 '{resourceName}' 加载失败: {task.Exception.Message}");
+                                    //OnResourceLoadFailed?.Invoke(resourceName, task.Exception);
+                                }
+                            }, linkedCts.Token));
+                    }
+
+                    await Task.WhenAll(batchTasks);
+                }
+
+                _logService.Info($"[ResourceService] 预加载组 '{groupName}' 完成（{completedCount}/{totalCount}）");
+            }
+            catch (OperationCanceledException)
+            {
+                _logService.Warning($"[ResourceService] 预加载组 '{groupName}' 被取消");
+            }
+            catch (Exception ex)
+            {
+                _logService.Error($"[ResourceService] 预加载组 '{groupName}' 异常: {ex.Message}\n{ex.StackTrace}");
+                //OnResourceLoadFailed?.Invoke(groupName, ex);
+            }
+            finally
+            {
+                linkedCts.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// 获取所有已注册的预加载组名称
+        /// </summary>
+        /// <returns>预加载组名称列表</returns>
+        public List<string> GetAllPreloadGroups()
+        {
+            lock (_lockObj)
+            {
+                return _preloadGroups.Keys.ToList();
+            }
+        }
+
+        #endregion
+
+        #region 常驻资源管理
+
+        /// <summary>
+        /// 异步加载常驻资源（带 LRU 缓存）
+        /// </summary>
+        /// <typeparam name="T">资源类型（继承自 <see cref="Object"/>）</typeparam>
+        /// <param name="resourceName">AssetKeys.AddressableNames 常量定义的资源地址</param>
+        /// <param name="cancellationToken">取消令牌（可选）</param>
+        /// <returns>资源加载结果对象 <see cref="ResourceLoadResult{T}"/></returns>
+        /// <remarks>
+        /// 执行逻辑：<br/>
+        /// 1. 参数校验 → 2. 缓存命中检查（更新访问时间） → 3. 底层加载 → 4. 缓存存储（触发 LRU 淘汰）<br/>
+        /// 缓存淘汰策略：当缓存数量超过 <see cref="ResourceServiceConfig.PersistentCacheMaxCount"/> 时，淘汰最久未访问的资源
+        /// </remarks>
+        public async Task<ResourceLoadResult<T>> LoadPersistentAssetAsync<T>(string resourceName,
+            CancellationToken cancellationToken = default)
+            where T : Object
+        {
+            if (string.IsNullOrEmpty(resourceName))
+            {
+                var errorMsg = $"[ResourceService] 资源名称 {resourceName} 为空，无法加载常驻资源";
+                _logService.Error(errorMsg);
+
+                return new ResourceLoadResult<T>
+                {
+                    Status = ResourceLoadStatus.Failed,
+                    ErrorMessage = errorMsg
+                };
+            }
+
+            // 检查缓存（LRU 更新访问时间）
+            lock (_lockObj)
+            {
+                if (_persistentCache.TryGetValue(resourceName, out var cacheItem))
+                {
+                    if (cacheItem.Asset is T typedAsset)
+                    {
+                        // 更新访问时间（使用 Tick 提升性能，避免 DateTime 装箱）
+                        _persistentCache[resourceName] = (typedAsset, DateTime.UtcNow.Ticks);
+                        _logService.Info($"[ResourceService] 常驻缓存命中: {resourceName}（类型: {typeof(T).Name}）");
+                        return new ResourceLoadResult<T>
+                        {
+                            Asset = typedAsset,
+                            Status = ResourceLoadStatus.AlreadyLoaded
+                        };
+                    }
+
+                    var errorMsg =
+                        $"[ResourceService] 常驻缓存类型不匹配: {resourceName} 期望 {typeof(T).Name}，实际 {cacheItem.Asset.GetType().Name}";
+                    _logService.Error(errorMsg);
+                    return new ResourceLoadResult<T>
+                    {
+                        Status = ResourceLoadStatus.Failed,
+                        ErrorMessage = errorMsg
+                    };
+                }
+            }
+
+            // 从 Addressables 加载
+            try
+            {
+                var asset = await _addressableService.LoadAssetAsync<T>(resourceName, cancellationToken);
+                if (!asset)
+                {
+                    var errorMsg = $"[ResourceService] 加载常驻资源失败: {resourceName}";
+                    _logService.Error(errorMsg);
+                    return new ResourceLoadResult<T>
+                    {
+                        Status = ResourceLoadStatus.Failed,
+                        ErrorMessage = errorMsg
+                    };
+                }
+
+                // 加入缓存（触发 LRU 淘汰）
+                lock (_lockObj)
+                {
+                    // LRU 淘汰优化：仅当超过容量时执行一次排序
+                    if (_persistentCache.Count >= _config.PersistentCacheMaxCount)
+                    {
+                        EvictLRUPersistentAsset();
+                    }
+
+                    _persistentCache[resourceName] = (asset, DateTime.UtcNow.Ticks);
+                }
+
+                _logService.Info($"[ResourceService] 常驻资源加载成功: {resourceName}（类型: {typeof(T).Name}）");
+                return new ResourceLoadResult<T>
+                {
+                    Asset = asset,
+                    Status = ResourceLoadStatus.Success
+                };
+            }
+            catch (OperationCanceledException)
+            {
+                _logService.Warning($"[ResourceService] 常驻资源加载取消: {resourceName}");
+                return new ResourceLoadResult<T>
+                {
+                    Status = ResourceLoadStatus.Cancelled,
+                    ErrorMessage = "加载被取消"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logService.Error($"[ResourceService] 常驻资源加载异常: {resourceName}\n{ex.StackTrace}");
+                return new ResourceLoadResult<T>
+                {
+                    Status = ResourceLoadStatus.Failed,
+                    ErrorMessage = ex.Message,
+                    Exception = ex
+                };
+            }
+        }
+
+        /// <summary>
+        /// 卸载常驻资源
+        /// </summary>
+        /// <param name="resourceName">AssetKeys.AddressableNames 常量定义的资源地址</param>
+        /// <param name="forceRelease">是否强制释放（忽略引用计数）</param>
+        /// <exception cref="ArgumentException">资源名称为空时输出错误日志</exception>
+        public void UnloadPersistentAsset(string resourceName, bool forceRelease = false)
+        {
+            if (string.IsNullOrEmpty(resourceName))
+            {
+                _logService.Error("[ResourceService] 资源名称为空，无法卸载常驻资源");
+                return;
+            }
+
+            lock (_lockObj)
+            {
+                if (_persistentCache.Remove(resourceName, out var cacheItem))
+                {
+                    // 释放底层资源
+                    _addressableService.ReleaseAsset(resourceName, forceRelease);
+                    _logService.Info($"[ResourceService] 常驻资源卸载成功: {resourceName}");
                 }
                 else
                 {
-                    _logService.Error(
-                        $"常驻缓存中的资源 '{resourceName}' 类型不匹配。期望 {typeof(T)}, 实际 {cachedObject.GetType()}");
-                    return null;
+                    _logService.Warning($"[ResourceService] 常驻缓存中未找到资源: {resourceName}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// LRU 淘汰最久未使用的常驻资源
+        /// </summary>
+        /// <remarks>
+        /// 淘汰逻辑：<br/>
+        /// 1. 按最后访问时间戳升序排序<br/>
+        /// 2. 移除第一个元素（最久未访问）<br/>
+        /// 3. 调用底层服务释放该资源
+        /// </remarks>
+        private void EvictLRUPersistentAsset()
+        {
+            var lruKey = _persistentCache.OrderBy(x => x.Value.LastAccessTick).First().Key;
+            if (!_persistentCache.Remove(lruKey, out var lruItem)) return;
+            _addressableService.ReleaseAsset(lruKey, true);
+            _logService.Info($"[ResourceService] LRU 淘汰常驻资源: {lruKey}");
+        }
+
+        /// <summary>
+        /// 检查指定资源是否在常驻缓存中
+        /// </summary>
+        /// <param name="resourceName">AssetKeys.AddressableNames 常量定义的资源地址</param>
+        /// <returns>存在返回 true，否则返回 false</returns>
+        /// <remarks>线程安全检查</remarks>
+        public bool IsPersistentAssetCached(string resourceName)
+        {
+            if (string.IsNullOrEmpty(resourceName)) return false;
+
+            lock (_lockObj)
+            {
+                return _persistentCache.ContainsKey(resourceName);
+            }
+        }
+
+        #endregion
+
+        #region 配置加载
+
+        /// <summary>
+        /// 异步加载 JSON 配置文件（带缓存）
+        /// </summary>
+        /// <typeparam name="T">配置对象类型</typeparam>
+        /// <param name="configName">AssetKeys.AddressableNames 常量定义的配置地址</param>
+        /// <param name="useCache">是否使用缓存（默认 true）</param>
+        /// <returns>配置加载结果对象 <see cref="ResourceLoadResult{T}"/></returns>
+        /// <remarks>
+        /// 执行逻辑：<br/>
+        /// 1. 参数校验 → 2. 缓存命中检查 → 3. 加载 TextAsset → 4. JSON 反序列化 → 5. 缓存存储（触发 LRU 淘汰）<br/>
+        /// 反序列化配置：忽略空值、缺失成员、循环引用
+        /// </remarks>
+        public async Task<ResourceLoadResult<T>> LoadJsonConfigAsync<T>(string configName, bool useCache = true)
+        {
+            // 入参校验
+            if (string.IsNullOrEmpty(configName))
+            {
+                var errorMsg = "[ResourceService] 配置名称为空，无法加载 JSON 配置";
+                _logService.Error(errorMsg);
+                return new ResourceLoadResult<T>
+                {
+                    Status = ResourceLoadStatus.Failed,
+                    ErrorMessage = errorMsg
+                };
+            }
+
+            // 1. 检查缓存
+            if (useCache)
+            {
+                lock (_lockObj)
+                {
+                    if (_configCache.TryGetValue(configName, out var cacheItem))
+                    {
+                        if (cacheItem.Config is T typedConfig)
+                        {
+                            _configCache[configName] = (typedConfig, DateTime.UtcNow.Ticks);
+                            _logService.Info($"[ResourceService] 配置缓存命中: {configName}（类型: {typeof(T).Name}）");
+                            return new ResourceLoadResult<T>
+                            {
+                                Asset = typedConfig,
+                                Status = ResourceLoadStatus.AlreadyLoaded
+                            };
+                        }
+
+                        var errorMsg =
+                            $"[ResourceService] 配置缓存类型不匹配: {configName} 期望 {typeof(T).Name}，实际 {cacheItem.Config.GetType().Name}";
+                        _logService.Error(errorMsg);
+                        return new ResourceLoadResult<T>
+                        {
+                            Status = ResourceLoadStatus.Failed,
+                            ErrorMessage = errorMsg
+                        };
+                    }
                 }
             }
 
-            // 从 Addressables 系统加载资源
-            T asset = await _addressableService.LoadAssetAsync<T>(address);
-            if (!asset) return asset; // 如果加载失败，直接返回 null
+            // 2. 加载配置文件
+            try
+            {
+                var textAssetResult = await LoadPersistentAssetAsync<TextAsset>(configName, _globalCts.Token);
+                if (textAssetResult.Status != ResourceLoadStatus.Success || !textAssetResult.Asset)
+                {
+                    var errorMsg = $"[ResourceService] 加载配置文件失败: {configName}";
+                    _logService.Error(errorMsg);
+                    return new ResourceLoadResult<T>
+                    {
+                        Status = ResourceLoadStatus.Failed,
+                        ErrorMessage = errorMsg
+                    };
+                }
 
-            // 加载成功后，将其放入常驻缓存
-            _persistentCache[resourceName] = asset;
-            _logService.Info($"成功加载并缓存常驻资源: {resourceName} ({address})");
-            return asset;
+                // 3. 反序列化
+                var jsonContent = textAssetResult.Asset.text;
+                var config = JsonConvert.DeserializeObject<T>(jsonContent, new JsonSerializerSettings
+                {
+                    NullValueHandling = NullValueHandling.Ignore,
+                    MissingMemberHandling = MissingMemberHandling.Ignore,
+                    ReferenceLoopHandling = ReferenceLoopHandling.Ignore
+                });
+
+                if (config == null)
+                {
+                    var errorMsg = $"[ResourceService] 配置反序列化失败: {configName}";
+                    _logService.Error(errorMsg);
+                    return new ResourceLoadResult<T>
+                    {
+                        Status = ResourceLoadStatus.Failed,
+                        ErrorMessage = errorMsg
+                    };
+                }
+
+                // 4. 缓存配置
+                if (useCache && _config.EnableConfigCacheAutoClean)
+                {
+                    lock (_lockObj)
+                    {
+                        if (_configCache.Count >= _config.ConfigCacheMaxCount)
+                        {
+                            EvictLRUConfig();
+                        }
+
+                        _configCache[configName] = (config, DateTime.UtcNow.Ticks);
+                    }
+                }
+
+                _logService.Info($"[ResourceService] JSON 配置加载成功: {configName}（类型: {typeof(T).Name}）");
+                return new ResourceLoadResult<T>
+                {
+                    Asset = config,
+                    Status = ResourceLoadStatus.Success
+                };
+            }
+            catch (Exception ex)
+            {
+                _logService.Error($"[ResourceService] 配置加载异常: {configName}\n{ex.StackTrace}");
+                //OnResourceLoadFailed?.Invoke(configName, ex);
+                return new ResourceLoadResult<T>
+                {
+                    Status = ResourceLoadStatus.Failed,
+                    ErrorMessage = ex.Message,
+                    Exception = ex
+                };
+            }
         }
 
         /// <summary>
-        /// 从常驻缓存中移除一个资源。
+        /// LRU 淘汰最久未使用的配置缓存
         /// </summary>
-        /// <param name="resourceName">要从常驻缓存中卸载的资源名称。</param>
-        public void UnloadPersistentAsset(string resourceName)
+        /// <remarks>
+        /// 淘汰逻辑：<br/>
+        /// 1. 按最后访问时间戳升序排序<br/>
+        /// 2. 移除第一个元素（最久未访问）<br/>
+        /// 3. 输出淘汰日志
+        /// </remarks>
+        private void EvictLRUConfig()
         {
-            if (_persistentCache.Remove(resourceName, out _))
+            var lruKey = _configCache.OrderBy(x => x.Value.LastAccessTick).First().Key;
+            _configCache.Remove(lruKey);
+            _logService.Info($"[ResourceService] LRU 淘汰配置缓存: {lruKey}");
+        }
+
+        /// <summary>
+        /// 清理配置缓存
+        /// </summary>
+        /// <param name="configName">配置名称（null 或空字符串表示清理全部）</param>
+        /// <remarks>线程安全清理</remarks>
+        public void ClearConfigCache(string configName = null)
+        {
+            lock (_lockObj)
             {
-                _logService.Info($"已从常驻缓存卸载资源: {resourceName}");
-                // 注意：对象本身可能仍有其他引用，只有当所有引用都被移除时，GC 才会回收其内存。
-                // Addressables 的句柄需要通过 _addressableService.ReleaseAsset 来释放。
-                // 如果需要彻底释放，可能需要 ResourceService 记录加载地址，并调用 _addressableManager.ReleaseAsset。
-                // 当前实现仅从缓存移除。
+                if (string.IsNullOrEmpty(configName))
+                {
+                    _configCache.Clear();
+                    _logService.Info("[ResourceService] 配置缓存已清空");
+                }
+                else if (_configCache.Remove(configName))
+                {
+                    _logService.Info($"[ResourceService] 配置缓存清理成功: {configName}");
+                }
+                else
+                {
+                    _logService.Warning($"[ResourceService] 配置缓存中未找到: {configName}");
+                }
+            }
+        }
+
+        #endregion
+
+        #region 场景管理
+
+        /// <summary>
+        /// 异步加载场景（不自动激活）
+        /// </summary>
+        /// <param name="sceneLogicalName">场景逻辑名称（业务层标识）</param>
+        /// <param name="sceneAddress">AssetKeys.AddressableNames 常量定义的场景地址</param>
+        /// <param name="loadMode">场景加载模式（默认叠加加载）</param>
+        /// <returns>场景加载结果对象 <see cref="ResourceLoadResult{SceneInstance}"/></returns>
+        /// <exception cref="ArgumentException">逻辑名称/地址为空时返回失败结果</exception>
+        public async Task<ResourceLoadResult<SceneInstance>> LoadSceneAsync(string sceneLogicalName,
+            string sceneAddress,
+            LoadSceneMode loadMode = LoadSceneMode.Additive)
+        {
+            // 入参校验
+            if (string.IsNullOrEmpty(sceneLogicalName) || string.IsNullOrEmpty(sceneAddress))
+            {
+                var errorMsg = "[ResourceService] 场景逻辑名称/地址为空，无法加载";
+                _logService.Error(errorMsg);
+                return new ResourceLoadResult<SceneInstance>
+                {
+                    Status = ResourceLoadStatus.Failed,
+                    ErrorMessage = errorMsg
+                };
+            }
+
+            // 检查是否已加载
+            if (IsSceneLoaded(sceneLogicalName))
+            {
+                _logService.Warning($"[ResourceService] 场景已加载: {sceneLogicalName}（地址: {sceneAddress}）");
+                return new ResourceLoadResult<SceneInstance>
+                {
+                    Status = ResourceLoadStatus.AlreadyLoaded
+                };
+            }
+
+            // 加载场景
+            try
+            {
+                var sceneInstance = await _addressableService.LoadSceneAsync(sceneAddress, loadMode, _globalCts.Token);
+                if (!sceneInstance.Scene.IsValid())
+                {
+                    var errorMsg = $"[ResourceService] 场景加载无效: {sceneLogicalName}（地址: {sceneAddress}）";
+                    _logService.Error(errorMsg);
+                    return new ResourceLoadResult<SceneInstance>
+                    {
+                        Status = ResourceLoadStatus.Failed,
+                        ErrorMessage = errorMsg
+                    };
+                }
+
+                // 记录已加载场景
+                lock (_lockObj)
+                {
+                    _loadedScenes[sceneLogicalName] = sceneAddress;
+                }
+
+                _logService.Info($"[ResourceService] 场景加载成功: {sceneLogicalName}（地址: {sceneAddress}）");
+                return new ResourceLoadResult<SceneInstance>
+                {
+                    Asset = sceneInstance,
+                    Status = ResourceLoadStatus.Success
+                };
+            }
+            catch (Exception ex)
+            {
+                _logService.Error($"[ResourceService] 场景加载异常: {sceneLogicalName}\n{ex.StackTrace}");
+                //OnResourceLoadFailed?.Invoke(sceneLogicalName, ex);
+                return new ResourceLoadResult<SceneInstance>
+                {
+                    Status = ResourceLoadStatus.Failed,
+                    ErrorMessage = ex.Message,
+                    Exception = ex
+                };
+            }
+        }
+
+        /// <summary>
+        /// 异步加载并激活场景
+        /// </summary>
+        /// <param name="sceneLogicalName">场景逻辑名称（业务层标识）</param>
+        /// <param name="sceneAddress">AssetKeys.AddressableNames 常量定义的场景地址</param>
+        /// <param name="loadMode">场景加载模式（默认叠加加载）</param>
+        /// <returns>场景加载结果对象 <see cref="ResourceLoadResult{SceneInstance}"/></returns>
+        /// <remarks>
+        /// 执行逻辑：<br/>
+        /// 1. 调用 <see cref="LoadSceneAsync"/> 加载场景<br/>
+        /// 2. 激活场景<br/>
+        /// 3. 激活失败时自动卸载场景并返回失败结果
+        /// </remarks>
+        public async Task<ResourceLoadResult<SceneInstance>> LoadAndActivateSceneAsync(string sceneLogicalName,
+            string sceneAddress, LoadSceneMode loadMode = LoadSceneMode.Additive)
+        {
+            var loadResult = await LoadSceneAsync(sceneLogicalName, sceneAddress, loadMode);
+            if (loadResult.Status != ResourceLoadStatus.Success || !loadResult.Asset.Scene.IsValid())
+            {
+                return loadResult;
+            }
+
+            // 激活场景
+            try
+            {
+                await loadResult.Asset.ActivateAsync();
+                _logService.Info($"[ResourceService] 场景已激活: {sceneLogicalName}");
+                return loadResult;
+            }
+            catch (Exception ex)
+            {
+                _logService.Error($"[ResourceService] 场景激活异常: {sceneLogicalName}\n{ex.StackTrace}");
+                //OnResourceLoadFailed?.Invoke(sceneLogicalName, ex);
+
+                // 激活失败自动卸载
+                await UnloadSceneAsync(sceneLogicalName, true);
+
+                return new ResourceLoadResult<SceneInstance>
+                {
+                    Status = ResourceLoadStatus.Failed,
+                    ErrorMessage = ex.Message,
+                    Exception = ex
+                };
+            }
+        }
+
+        /// <summary>
+        /// 异步卸载场景
+        /// </summary>
+        /// <param name="sceneLogicalName">场景逻辑名称（业务层标识）</param>
+        /// <param name="forceRelease">是否强制卸载（忽略引用计数）</param>
+        /// <returns>卸载成功返回 true，否则返回 false</returns>
+        /// <remarks>线程安全操作，卸载成功后移除场景映射记录</remarks>
+        public async Task<bool> UnloadSceneAsync(string sceneLogicalName, bool forceRelease = false)
+        {
+            if (string.IsNullOrEmpty(sceneLogicalName))
+            {
+                _logService.Error("[ResourceService] 场景逻辑名称为空，无法卸载");
+                return false;
+            }
+
+            // 获取场景地址
+            string sceneAddress;
+            lock (_lockObj)
+            {
+                if (!_loadedScenes.TryGetValue(sceneLogicalName, out sceneAddress))
+                {
+                    _logService.Warning($"[ResourceService] 场景未加载，无需卸载: {sceneLogicalName}");
+                    return false;
+                }
+            }
+
+            // 卸载场景
+            var unloadSuccess = await _addressableService.UnloadSceneAsync(sceneAddress, forceRelease);
+            if (unloadSuccess)
+            {
+                lock (_lockObj)
+                {
+                    _loadedScenes.Remove(sceneLogicalName);
+                }
+
+                _logService.Info($"[ResourceService] 场景卸载成功: {sceneLogicalName}（地址: {sceneAddress}）");
             }
             else
             {
-                _logService.Warning($"尝试卸载未在常驻缓存中的资源: {resourceName}");
+                _logService.Error($"[ResourceService] 场景卸载失败: {sceneLogicalName}（地址: {sceneAddress}）");
             }
+
+            return unloadSuccess;
         }
 
         /// <summary>
-        /// 获取常驻缓存中资源的数量。
+        /// 检查场景是否已加载且有效
         /// </summary>
-        /// <returns>当前在常驻缓存中的资源数量。</returns>
-        public int GetPersistentCacheCount()
+        /// <param name="sceneLogicalName">场景逻辑名称（业务层标识）</param>
+        /// <returns>已加载且有效返回 true，否则返回 false</returns>
+        /// <remarks>
+        /// 检查逻辑：<br/>
+        /// 1. 检查场景映射表是否存在<br/>
+        /// 2. 调用底层服务检查场景是否真的加载且有效
+        /// </remarks>
+        public bool IsSceneLoaded(string sceneLogicalName)
         {
-            return _persistentCache.Count;
-        }
+            if (string.IsNullOrEmpty(sceneLogicalName)) return false;
 
-        /// <summary>
-        /// 检查一个资源是否已经在常驻缓存中。
-        /// </summary>
-        /// <param name="resourceName">要检查的资源名称。</param>
-        /// <returns>如果资源在常驻缓存中则返回 true，否则返回 false。</returns>
-        public bool IsPersistentAssetLoaded(string resourceName)
-        {
-            return _persistentCache.ContainsKey(resourceName);
+            lock (_lockObj)
+            {
+                if (!_loadedScenes.TryGetValue(sceneLogicalName, out var sceneAddress))
+                {
+                    return false;
+                }
+
+                return _addressableService.IsSceneLoaded(sceneAddress);
+            }
         }
 
         #endregion
@@ -224,255 +1045,89 @@ namespace BH.Framework.Infrastructure.Resource.Services
         #region 预制体实例化
 
         /// <summary>
-        /// 根据逻辑名称异步加载一个预制体并实例化为 GameObject。
-        /// 注意：此方法加载的预制体不会被放入常驻缓存。
+        /// 异步实例化预制体
         /// </summary>
-        /// <param name="resourceName">预制体的逻辑名称（例如 "PlayerAvatar"），需在 _resourcePaths 中有对应映射。</param>
-        /// <param name="parent">新实例化 GameObject 的父对象 (Transform)。可以为 null。</param>
-        /// <param name="instantiateInWorldSpace">
-        /// 如果为 true，则新实例的位置、旋转和缩放不会受父对象的影响；
-        /// 如果为 false，则会相对于父对象进行定位。
-        /// </param>
-        /// <returns>一个 Task，完成后返回实例化的 GameObject；如果加载或实例化失败则返回 null。</returns>
-        public async Task<Object> InstantiatePrefabAsync(string resourceName, Transform parent = null,
-            bool instantiateInWorldSpace = false)
+        /// <param name="prefabName">AssetKeys.AddressableNames 常量定义的预制体地址</param>
+        /// <param name="parent">实例化的父节点（可选）</param>
+        /// <param name="instantiateInWorldSpace">是否使用世界空间坐标（默认 false）</param>
+        /// <returns>预制体实例化结果对象 <see cref="ResourceLoadResult{GameObject}"/></returns>
+        /// <exception cref="ArgumentException">预制体名称为空时返回失败结果</exception>
+        public async Task<ResourceLoadResult<GameObject>> InstantiatePrefabAsync(string prefabName,
+            Transform parent = null, bool instantiateInWorldSpace = false)
         {
-            if (!_resourcePaths.TryGetValue(resourceName, out string address))
+            if (string.IsNullOrEmpty(prefabName))
             {
-                _logService.Error($"未找到预制体名称 '{resourceName}' 的映射地址。");
-                return null;
-            }
-
-            // 加载预制体模板
-            Object prefab = await _addressableService.LoadAssetAsync<Object>(address);
-            if (prefab)
-            {
-                Object instance = Object.Instantiate(prefab, parent, instantiateInWorldSpace);
-                _logService.Info($"成功实例化预制体: {resourceName} ({address})");
-                return instance;
-            }
-
-            _logService.Error($"加载预制体失败: {resourceName} ({address})");
-            return null;
-        }
-
-        #endregion
-
-        #region 配置文件加载 (Protobuf/JSON/Text)
-
-        /// <summary>
-        /// 异步加载一个二进制 Protobuf 文件 (.bytes)，将其反序列化为目标 Protobuf 消息类型 T，
-        /// 并可选择性地缓存结果。
-        /// </summary>
-        /// <typeparam name="T">期望反序列化后得到的 Protobuf 消息类型，必须实现 IMessage&lt;T&gt;。</typeparam>
-        /// <param name="resourceName">Protobuf 文件的逻辑名称（例如 "PlayerData"），需在 _resourcePaths 中有对应映射。</param>
-        /// <param name="useCache">如果为 true，则将加载和反序列化的结果缓存起来，后续调用会优先返回缓存值。默认为 true。</param>
-        /// <returns>一个 Task，完成后返回反序列化后的 Protobuf 消息对象；如果加载或反序列化失败则返回 null。</returns>
-        public async Task<T> LoadProtobufDataAsync<T>(string resourceName, bool useCache = true)
-            where T : class, IMessage<T>, new()
-        {
-            // 1. 检查缓存
-            if (useCache && _configCache.TryGetValue(resourceName, out object cachedData))
-            {
-                if (cachedData is T typedCachedData)
+                var errorMsg = "[ResourceService] 预制体名称为空，无法实例化";
+                _logService.Error(errorMsg);
+                return new ResourceLoadResult<GameObject>
                 {
-                    _logService.Info($"从缓存加载 Protobuf 数据: {resourceName}");
-                    return typedCachedData;
-                }
-                else
-                {
-                    _logService.Error(
-                        $"配置缓存中的数据 '{resourceName}' 类型不匹配。期望 {typeof(T)}, 实际 {cachedData.GetType()}");
-                }
-            }
-
-            _logService.Info($"开始加载 Protobuf 数据: {resourceName}");
-
-            // 2. 从 Addressables 加载二进制文件 (Byte Asset)
-            string address = GetResourceAddress(resourceName);
-            if (string.IsNullOrEmpty(address))
-            {
-                _logService.Error($"无法获取 Protobuf 文件 '{resourceName}' 的地址。");
-                return null;
-            }
-
-            // 假设您的 .bytes 文件在 Addressables 中被当作 TextAsset 或 Binary ScriptableObject 处理。
-            // 如果是 .bytes 文件，通常用 TextAsset 加载其 raw bytes。
-            TextAsset textAsset = await _addressableService.LoadAssetAsync<TextAsset>(address);
-            if (!textAsset)
-            {
-                _logService.Error($"加载 TextAsset 失败，Protobuf 文件名称: {resourceName}");
-                return null;
-            }
-
-            // 3. 使用 ProtobufService 反序列化
-            T protobufData = _protobufService.DeserializeFromBytes<T>(textAsset.bytes);
-
-            if (protobufData != null && useCache)
-            {
-                // 4. 如果成功且启用缓存，则存入缓存
-                _configCache[resourceName] = protobufData;
-                _logService.Info($"成功加载并缓存 Protobuf 数据: {resourceName}");
-            }
-            else if (protobufData != null)
-            {
-                _logService.Info($"成功加载 Protobuf 数据 (未缓存): {resourceName}");
-            }
-
-            return protobufData;
-        }
-
-        /// <summary>
-        /// 异步加载一个 JSON 格式的配置文件，将其反序列化为目标类型 T，并可选择性地缓存结果。
-        /// </summary>
-        /// <typeparam name="T">期望反序列化后得到的数据类型（例如 CharacterData[], SkillData 等）。</typeparam>
-        /// <param name="configResourceName">配置文件的逻辑名称（例如 "Characters"），需在 _resourcePaths 中有对应映射。</param>
-        /// <param name="useCache">如果为 true，则将加载和反序列化的结果缓存起来，后续调用会优先返回缓存值。默认为 true。</param>
-        /// <returns>一个 Task，完成后返回反序列化后的对象；如果加载或反序列化失败则返回类型的默认值 (default(T))。</returns>
-        public async Task<T> LoadJsonConfigAsync<T>(string configResourceName, bool useCache = true)
-        {
-            // 如果启用缓存，首先检查缓存
-            if (useCache && _configCache.TryGetValue(configResourceName, out object cachedData))
-            {
-                if (cachedData is T typedCachedData)
-                {
-                    _logService.Info($"从缓存加载 JSON 配置: {configResourceName}");
-                    return typedCachedData;
-                }
-                else
-                {
-                    _logService.Error(
-                        $"配置缓存中的数据 '{configResourceName}' 类型不匹配。期望 {typeof(T)}, 实际 {cachedData.GetType()}");
-                    return default;
-                }
-            }
-
-            _logService.Info($"尝试加载 JSON 配置: {configResourceName}");
-
-            // 使用底层的 _addressableService 加载 TextAsset
-            var textAsset =
-                await _addressableService.LoadAssetAsync<TextAsset>(GetResourceAddress(configResourceName));
-            if (!textAsset)
-            {
-                _logService.Error($"加载 TextAsset 失败，配置名称: {configResourceName}");
-                return default;
-            }
-
-            string jsonContent = textAsset.text;
-            if (string.IsNullOrEmpty(jsonContent))
-            {
-                _logService.Error($"加载的 TextAsset 内容为空，配置名称: {configResourceName}");
-                return default;
+                    Status = ResourceLoadStatus.Failed,
+                    ErrorMessage = errorMsg
+                };
             }
 
             try
             {
-                var configData = JsonConvert.DeserializeObject<T>(jsonContent, new JsonSerializerSettings
-                {
-                    // 根据需要配置反序列化选项 (例如，NullValueHandling, MissingMemberHandling)
-                    NullValueHandling = NullValueHandling.Ignore,
-                    MissingMemberHandling = MissingMemberHandling.Ignore
-                });
+                var prefabInstance = await _addressableService.InstantiatePrefabAsync(
+                    prefabName, parent, instantiateInWorldSpace, _globalCts.Token);
 
-                // 如果启用缓存，将结果存入缓存
-                if (useCache)
+                if (prefabInstance == null)
                 {
-                    _configCache[configResourceName] = configData;
-                    _logService.Info($"成功加载并缓存 JSON 配置: {configResourceName}");
-                }
-                else
-                {
-                    _logService.Info($"成功加载 JSON 配置 (未缓存): {configResourceName}");
+                    var errorMsg = $"[ResourceService] 预制体实例化失败: {prefabName}";
+                    _logService.Error(errorMsg);
+                    return new ResourceLoadResult<GameObject>
+                    {
+                        Status = ResourceLoadStatus.Failed,
+                        ErrorMessage = errorMsg
+                    };
                 }
 
-                return configData;
+                _logService.Info($"[ResourceService] 预制体实例化成功: {prefabName}");
+                return new ResourceLoadResult<GameObject>
+                {
+                    Asset = prefabInstance,
+                    Status = ResourceLoadStatus.Success
+                };
             }
             catch (Exception ex)
             {
-                _logService.Error(
-                    $"解析 JSON 配置时出错 '{configResourceName}'");
-                return default;
+                _logService.Error($"[ResourceService] 预制体实例化异常: {prefabName}\n{ex.StackTrace}");
+                //OnResourceLoadFailed?.Invoke(prefabName, ex);
+                return new ResourceLoadResult<GameObject>
+                {
+                    Status = ResourceLoadStatus.Failed,
+                    ErrorMessage = ex.Message,
+                    Exception = ex
+                };
             }
-        }
-
-        /// <summary>
-        /// 异步加载一个 TextAsset（通常用于 JSON 或纯文本格式的配置文件）并返回其内容字符串。
-        /// </summary>
-        /// <param name="configResourceName">配置文件的逻辑名称。</param>
-        /// <returns>一个 Task，完成后返回 TextAsset 的文本内容；如果加载失败则返回 null。</returns>
-        public async Task<string> LoadTextConfigAsStringAsync(string configResourceName)
-        {
-            TextAsset textAsset =
-                await _addressableService.LoadAssetAsync<TextAsset>(GetResourceAddress(configResourceName));
-            return textAsset?.text; // 如果 textAsset 为 null，?. 操作符会返回 null
         }
 
         #endregion
 
-        #region 预加载组管理
+        #region 辅助方法
 
         /// <summary>
-        /// 将一组资源添加到指定的预加载组中。
-        /// 这些资源将在后续调用 PreloadGroupAsync 时被批量加载。
+        /// 获取已加载场景的逻辑名称列表
         /// </summary>
-        /// <param name="groupName">预加载组的名称（例如 "Scene_Level1"）。</param>
-        /// <param name="resourceNames">要添加到该组的资源名称列表。</param>
-        public void AddToPreloadGroup(string groupName, List<string> resourceNames)
+        /// <returns>已加载场景逻辑名称列表（线程安全）</returns>
+        public List<string> GetLoadedScenes()
         {
-            if (!_preloadGroups.ContainsKey(groupName))
+            lock (_lockObj)
             {
-                _preloadGroups[groupName] = new List<string>();
+                return _loadedScenes.Keys.ToList();
             }
-
-            _preloadGroups[groupName].AddRange(resourceNames);
-            _logService.Info($"已将 {resourceNames.Count} 个资源添加到预加载组 '{groupName}'。");
         }
 
         /// <summary>
-        /// 异步加载指定预加载组中的所有资源，并将它们放入常驻缓存。
-        /// 通常用于在进入新场景或开启新功能前，提前加载所需的资源。
+        /// 获取常驻缓存中的资源数量
         /// </summary>
-        /// <param name="groupName">要加载的预加载组名称。</param>
-        /// <returns>一个 Task，当组内所有资源都加载完成时该 Task 完成。</returns>
-        public async Task PreloadGroupAsync(string groupName)
+        /// <returns>常驻缓存资源数量（线程安全）</returns>
+        public int GetPersistentCacheCount()
         {
-            if (!_preloadGroups.TryGetValue(groupName, out List<string> resourceList))
+            lock (_lockObj)
             {
-                _logService.Warning($"尝试加载不存在的预加载组: {groupName}");
-                return;
+                return _persistentCache.Count;
             }
-
-            _logService.Info($"开始预加载组: {groupName}，共 {resourceList.Count} 个资源。");
-
-            // 使用 Task.WhenAll 并发加载所有资源，以提高效率
-            List<Task> tasks = new List<Task>();
-            foreach (string resourceName in resourceList)
-            {
-                if (_resourcePaths.TryGetValue(resourceName, out _))
-                {
-                    // 将预加载的资源加入常驻缓存
-                    tasks.Add(LoadPersistentAssetAsync<Object>(resourceName));
-                }
-                else
-                {
-                    _logService.Error($"预加载组 '{groupName}' 中包含无效资源名称: {resourceName}");
-                }
-            }
-
-            await Task.WhenAll(tasks);
-            _logService.Info($"预加载组 '{groupName}' 完成。");
-        }
-
-        #endregion
-
-        #region 缓存清理
-
-        public void Dispose()
-        {
-            _persistentCache.Clear();
-            _configCache.Clear();
-            _addressableService.ReleaseAllAssets(); // 通知底层系统释放所有资源
-            _logService.Info("已清除所有缓存和底层资源。");
         }
 
         #endregion

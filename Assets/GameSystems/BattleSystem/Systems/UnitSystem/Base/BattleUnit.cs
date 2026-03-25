@@ -1,5 +1,4 @@
 using System;
-using BH.Framework.Infrastructure.DI.Attributes;
 using BH.Framework.Infrastructure.Logging.Core;
 using BH.GameSystems.BattleSystem.Enums;
 using BH.GameSystems.BattleSystem.Interfaces;
@@ -18,7 +17,7 @@ namespace BH.GameSystems.BattleSystem.Systems.UnitSystem.Base
         [SerializeField] private bool isInitialized;
         [SerializeField] private bool isAlive;
 
-        [Inject] protected LogService LOGService = null;
+         protected LogService LOGService = null;
 
         // private Dictionary<Type, ICharacterModule> _modules;
 

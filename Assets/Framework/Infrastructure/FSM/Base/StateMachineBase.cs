@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using BH.Framework.Infrastructure.Events.Interfaces;
 using BH.Framework.Infrastructure.FSM.Interfaces;
+using BH.Framework.Infrastructure.Logging.Interfaces;
 using UnityEngine;
 
 namespace BH.Framework.Infrastructure.FSM.Base
@@ -14,15 +16,30 @@ namespace BH.Framework.Infrastructure.FSM.Base
     {
         #region Properties and Fields
 
-        public IState CurrentState { get; private set; }
+        protected readonly ILogService _logService;
+        protected readonly IEventService _eventService;
+        protected IState _currentState;
+
+        public IState CurrentState
+        {
+            get => _currentState;
+            protected set => _currentState = value;
+        }
+
         public TStateType CurrentStateType { get; private set; }
 
-        private readonly Dictionary<TStateType, IState> _states = new();
-        private IState _previousState = null;
+        protected readonly Dictionary<TStateType, IState> States = new();
+        protected IState _previousState = null;
         [SerializeField] protected TStateType initialState;
 
         #endregion
 
+        protected StateMachineBase(ILogService logService, IEventService eventService)
+        {
+            _logService = logService;
+            _eventService = eventService;
+        }
+        
         #region Public Methods
 
         /// <summary>
@@ -32,12 +49,12 @@ namespace BH.Framework.Infrastructure.FSM.Base
         /// <param name="state">状态实例</param>
         protected void RegisterState(TStateType stateType, IState state)
         {
-            if (_states.ContainsKey(stateType))
+            if (States.ContainsKey(stateType))
             {
                 Debug.LogWarning($"[FSM] 状态ID {stateType} 已存在，将被覆盖。");
             }
 
-            _states[stateType] = state;
+            States[stateType] = state;
         }
 
         /// <summary>
@@ -46,7 +63,7 @@ namespace BH.Framework.Infrastructure.FSM.Base
         /// <param name="stateType">要注销的状态ID</param>
         public void UnregisterState(TStateType stateType)
         {
-            _states.Remove(stateType);
+            States.Remove(stateType);
             if (CurrentStateType.Equals(stateType))
             {
                 CurrentState = null;
@@ -56,27 +73,27 @@ namespace BH.Framework.Infrastructure.FSM.Base
 
         public virtual void ChangeState(TStateType newStateType, object param = null)
         {
-            if (!_states.TryGetValue(newStateType, out var newState))
+            if (!CanChangeState(newStateType))
             {
-                Debug.LogError($"[FSM] 尝试切换到未注册的状态: {newStateType}");
+                _logService.Warning($"非法阶段切换: {CurrentState} -> {newStateType}");
                 return;
             }
 
-            CurrentState?.Exit(newState);
-
-            _previousState = CurrentState;
-            var oldState = CurrentState;
-
-            CurrentState = newState;
-            CurrentStateType = newStateType;
-
-            newState.Enter(oldState, param);
+            _currentState?.Exit();
+            _currentState = States[newStateType];
+            _currentState?.Enter();
         }
 
         public IState GetState(TStateType stateType)
         {
-            _states.TryGetValue(stateType, out var state);
+            States.TryGetValue(stateType, out var state);
             return state;
+        }
+        
+        protected virtual bool CanChangeState(TStateType newStateType)
+        {
+            // 定义允许的转换
+            return true;
         }
 
         #endregion
@@ -116,7 +133,7 @@ namespace BH.Framework.Infrastructure.FSM.Base
         /// </summary>
         public virtual void ClearStates()
         {
-            _states.Clear();
+            States.Clear();
             CurrentState = null;
             CurrentStateType = default;
             _previousState = null;

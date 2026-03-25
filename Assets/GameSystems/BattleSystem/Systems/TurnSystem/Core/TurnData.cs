@@ -11,29 +11,10 @@ namespace BH.GameSystems.BattleSystem.Systems.TurnSystem.Core
     public class TurnData
     {
         /// <summary>
-        /// 回合角色
-        /// </summary>
-        [SerializeField] private BattleUnit<UnitData<UnitSaveData, UnitRuntimeData>> unit;
-
-        /// <summary>
         /// 回合序号
         /// </summary>
         [SerializeField] private int turnNumber;
-
-        [SerializeField] private bool isCompleted;
-
-        public bool IsCompleted
-        {
-            get => isCompleted;
-            set => isCompleted = value;
-        }
-
-        public BattleUnit<UnitData<UnitSaveData, UnitRuntimeData>> Unit
-        {
-            get => unit;
-            set => unit = value;
-        }
-
+        
         public int TurnNumber
         {
             get => turnNumber;

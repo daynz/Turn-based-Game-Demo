@@ -3,7 +3,7 @@ using BH.Framework.Singleton;
 
 namespace BH.GameSystems.BattleSystem.Service
 {
-    public class BuffService : CSharpSingleton<BuffService>, IGameService
+    public class BuffService : CSharpSingleton<BuffService>//, IGameService
     {
         public void Init()
         {

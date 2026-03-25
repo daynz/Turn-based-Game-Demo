@@ -16,16 +16,16 @@ MonoBehaviour:
   m_GUID: 9d2265eedb85a9a4f84ae4d72bff4973
   m_SerializeEntries:
   - m_GUID: ce798f60915a4e30a7d113e42f7a37a0
-    m_Address: Assets/Addressables/Local/Config/CharacterData/Characters.json
+    m_Address: CharacterDataJson
     m_ReadOnly: 0
     m_SerializedLabels:
-    - Json
+    - Type_Config
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: f5fe9d95c415446086e8db1f5f115151
-    m_Address: Assets/Addressables/Local/Config/CharacterData/Monsters.json
+    m_Address: MonsterDataJson
     m_ReadOnly: 0
     m_SerializedLabels:
-    - Json
+    - Type_Config
     FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 7eda43612344a8749b31546981d0fb50, type: 2}

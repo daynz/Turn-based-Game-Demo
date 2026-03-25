@@ -187,6 +187,7 @@ namespace BH.Framework.Infrastructure.Events.Core
         /// <summary>
         /// 创建无业务数据的事件构建器（快捷方法）
         /// </summary>
+        /// <param name="onLoadResourceAndConfig"></param>
         /// <typeparam name="TEvent">事件类型（需继承 EventBase&lt;EmptyEventData&gt;）</typeparam>
         /// <returns>事件构建器实例</returns>
         public static EventBuilder<TEvent, EmptyEventData> CreateForEmptyData<TEvent>()

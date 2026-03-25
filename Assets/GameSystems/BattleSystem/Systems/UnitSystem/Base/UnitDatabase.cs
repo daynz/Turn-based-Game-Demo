@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-using BH.Framework.Infrastructure.DI.Attributes;
 using BH.Framework.Infrastructure.Logging.Core;
 using BH.GameSystems.BattleSystem.Interfaces;
 using UnityEngine;
@@ -22,7 +20,7 @@ namespace BH.GameSystems.BattleSystem.Systems.UnitSystem.Base
 
         protected Dictionary<string, TData> Cache;
 
-        [Inject] protected LogService LOGService = null;
+        protected LogService LOGService = null;
 
         private void BuildCache()
         {

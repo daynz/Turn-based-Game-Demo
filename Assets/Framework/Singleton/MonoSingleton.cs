@@ -6,7 +6,7 @@ namespace BH.Framework.Singleton
     /// <summary>
     /// 单例模式基类
     /// </summary>
-    public abstract class MonoSingleton<T> : MonoBehaviour, IInitializable, IDestroy
+    public abstract class MonoSingleton<T> : MonoBehaviour
         where T : MonoSingleton<T>
     {
         private static T _instance;

@@ -2,22 +2,18 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using BH.Framework.Enums;
-using BH.Framework.Infrastructure.DI.Attributes;
-using BH.Framework.Infrastructure.DI.Interfaces;
 using BH.Framework.Infrastructure.Logging.Core;
 using Google.Protobuf;
 
 namespace BH.Framework.Infrastructure.Resource.Services
 {
     [Serializable]
-    [AutoRegisterService]
-    public class ProtobufService : IService
+    public class ProtobufService
     {
         public int Priority => (int)PriorityOrder.ProtobufService;
         public string Name => GetType().Name;
         public bool IsInitialized { get; private set; }
-
-        [field: Inject] private LogService LogService { get; set; }
+        private LogService LogService { get; set; }
 
         public Task InitializeAsync()
         {

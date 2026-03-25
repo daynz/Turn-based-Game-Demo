@@ -6,7 +6,6 @@ using BH.Framework.Enums;
 using BH.Framework.Infrastructure.Logging.Interfaces;
 using BH.Framework.Infrastructure.Logging.Output;
 using UnityEngine;
-using Zenject;
 using LogType = BH.Framework.Enums.LogType;
 
 namespace BH.Framework.Infrastructure.Logging.Core
@@ -19,14 +18,14 @@ namespace BH.Framework.Infrastructure.Logging.Core
     {
         private ConcurrentQueue<LogEntry> _logQueue;
         private List<LogEntry> _logList;
-        private static readonly object Lock = new();
-        [SerializeField] private LogConfig config;
-        [SerializeField] private LogConfig defaultConfig = new LogConfig();
+        [SerializeField] private LogConfig config = new();
+        [SerializeField] private LogConfig defaultConfig = new();
         [SerializeField] private bool enableLogService = true;
         [SerializeField] private int maxCapacity = 5000;
         [SerializeField] private LogLevel minDisplayLevel = LogLevel.Info;
 
         private List<ILogOutput> _outputs;
+        private static readonly object Lock = new();
 
         public int MaxCapacity
         {
@@ -34,17 +33,13 @@ namespace BH.Framework.Infrastructure.Logging.Core
             set => maxCapacity = value;
         }
 
-        public LogService(IEnumerable<ILogOutput> outputs)
+        public void Initialize()
         {
-            _outputs = new List<ILogOutput>(outputs) { new LogConsoleOutput() };
+            _outputs = new List<ILogOutput> { new LogConsoleOutput() };
             _logQueue = new ConcurrentQueue<LogEntry>();
             _logList = new List<LogEntry>(maxCapacity);
             config = defaultConfig;
-        }
-
-        public void Initialize()
-        {
-            UnityEngine.Debug.Log("LogService 初始化完成");
+            Info("LogService 初始化完成");
         }
 
         /// <summary>

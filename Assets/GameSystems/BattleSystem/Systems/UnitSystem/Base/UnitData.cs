@@ -1,5 +1,4 @@
 using System;
-using BH.Framework.Infrastructure.DI.Attributes;
 using BH.Framework.Infrastructure.Logging.Core;
 using BH.GameSystems.BattleSystem.Interfaces;
 using Newtonsoft.Json;
@@ -32,7 +31,7 @@ namespace BH.GameSystems.BattleSystem.Systems.UnitSystem.Base
         [SerializeField] [JsonProperty] protected TRuntime runtimeData;
 
         [SerializeField] private GameObject prefab;
-        [Inject] protected LogService LOGService = null;
+        protected LogService LOGService = null;
 
         public string UnitId
         {

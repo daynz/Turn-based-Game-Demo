@@ -1,0 +1,25 @@
+{
+    "name": "BH.Installers",
+    "rootNamespace": "BH",
+    "references": [
+        "GUID:51fdd7687b535bd4ab3ccf9adcbd44df",
+        "GUID:76184ccb2e9aa7644be0ba1d5c07de7e",
+        "GUID:0d8beb7f090555447a6cf5ce9e54dbb4",
+        "GUID:6fb36e821e574dd44baba81569492d0e"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Zenject-usage.dll",
+        "Zenject.ReflectionBaking.Mono.Cecil.dll",
+        "Zenject.ReflectionBaking.Mono.Cecil.Mdb.dll",
+        "Zenject.ReflectionBaking.Mono.Cecil.Pdb.dll",
+        "Zenject.ReflectionBaking.Mono.Cecil.Rocks.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

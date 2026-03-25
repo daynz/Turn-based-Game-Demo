@@ -9,7 +9,7 @@ namespace BH.Framework.Singleton
     /// 使用 Lazy&lt;T&gt; 实现线程安全的延迟初始化
     /// </summary>
     /// <typeparam name="T">必须是 CSharpSingleton&lt;T&gt; 的子类，且有无参构造函数</typeparam>
-    public abstract class CSharpSingleton<T> : IInitializable
+    public abstract class CSharpSingleton<T>
         where T : CSharpSingleton<T>, new()
     {
         private static readonly Lazy<T> LazyInstance = new(() =>

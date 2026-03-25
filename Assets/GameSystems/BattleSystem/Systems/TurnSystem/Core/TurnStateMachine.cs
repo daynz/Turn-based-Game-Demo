@@ -1,71 +1,57 @@
 using System;
-using System.Collections.Generic;
-using BH.Framework.Infrastructure.DI.Attributes;
-using BH.Framework.Infrastructure.Logging.Core;
+using BH.Framework.Infrastructure.Events.Interfaces;
+using BH.Framework.Infrastructure.FSM.Base;
+using BH.Framework.Infrastructure.Logging.Interfaces;
 using BH.GameSystems.BattleSystem.Enums;
-using BH.GameSystems.BattleSystem.Interfaces;
-using BH.GameSystems.BattleSystem.Systems.TurnSystem.Base;
 using BH.GameSystems.BattleSystem.Systems.TurnSystem.State;
 using UnityEngine;
 
 namespace BH.GameSystems.BattleSystem.Systems.TurnSystem.Core
 {
     [Serializable]
-    public class TurnStateMachine
+    public class TurnStateMachine : StateMachineBase<TurnStateType>
     {
-        public string Name => GetType().Name;
-        [SerializeField] private TurnPhase currentPhase;
-        private ITurnState _currentState;
-        private Dictionary<TurnPhase, ITurnState> _states;
-        public TurnPhase CurrentPhase => currentPhase;
-        [Inject] private LogService _logService;
+        [SerializeField] private TurnStateType currentPhase;
 
-        public TurnStateMachine()
+        public TurnStateMachine(ILogService logService, IEventService eventService)
+            : base(logService, eventService)
         {
-            _states = new Dictionary<TurnPhase, ITurnState>
-            {
-                { TurnPhase.NotStarted, new BaseTurnState() },
-                { TurnPhase.Preparation, new TurnPreparationState() },
-                { TurnPhase.ActionSelection, new TurnActionSelectionState() },
-                { TurnPhase.ActionExecution, new TurnActionExecutionState() },
-                { TurnPhase.End, new TurnEndState() },
-                { TurnPhase.Completed, new TurnCompletedState() }
-            };
-            currentPhase = TurnPhase.NotStarted;
-            _currentState = _states[currentPhase];
+            RegisterState(TurnStateType.Preparation, new TurnPreparationState(logService, eventService));
+            RegisterState( TurnStateType.ActionSelection, new TurnActionSelectionState(logService, eventService));
+            RegisterState(TurnStateType.ActionExecution, new TurnActionExecutionState(logService, eventService));
+            RegisterState(TurnStateType.End, new TurnEndState(logService, eventService));
+            RegisterState(TurnStateType.Completed, new TurnCompletedState(logService, eventService));
+            
+            currentPhase = TurnStateType.NotStarted;
+            _currentState = States[currentPhase];
         }
 
-        public void ChangeState(TurnPhase newPhase)
+        public void ChangeState(TurnStateType newPhase)
         {
             if (!CanChangeState(newPhase))
             {
-                _logService.Warning($"非法阶段切换: {currentPhase} -> {newPhase}", Name);
+                _logService.Warning($"非法阶段切换: {currentPhase} -> {newPhase}");
                 return;
             }
 
             _currentState?.Exit();
-            _currentState = _states[newPhase];
+            _currentState = States[newPhase];
             _currentState?.Enter();
-        }
-
-        void Update()
-        {
-            _currentState?.Update();
         }
 
         /// <summary>
         /// 检查状态切换合法性
         /// </summary>
-        private bool CanChangeState(TurnPhase newPhase)
+        protected override bool CanChangeState(TurnStateType newStateType)
         {
             // 定义允许的转换
             return currentPhase switch
             {
-                TurnPhase.NotStarted => newPhase == TurnPhase.Preparation,
-                TurnPhase.Preparation => newPhase is TurnPhase.ActionSelection or TurnPhase.End,
-                TurnPhase.ActionSelection => newPhase is TurnPhase.ActionExecution or TurnPhase.End,
-                TurnPhase.ActionExecution => newPhase is TurnPhase.ActionSelection or TurnPhase.End,
-                TurnPhase.End => newPhase == TurnPhase.Completed,
+                TurnStateType.NotStarted => newStateType == TurnStateType.Preparation,
+                TurnStateType.Preparation => newStateType is TurnStateType.ActionSelection or TurnStateType.End,
+                TurnStateType.ActionSelection => newStateType is TurnStateType.ActionExecution or TurnStateType.End,
+                TurnStateType.ActionExecution => newStateType is TurnStateType.ActionSelection or TurnStateType.End,
+                TurnStateType.End => newStateType == TurnStateType.Completed,
                 //TurnPhase.Completed => false,
                 _ => false
             };

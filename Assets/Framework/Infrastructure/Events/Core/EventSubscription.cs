@@ -2,11 +2,11 @@ using System;
 using System.Reflection;
 using System.Threading.Tasks;
 using BH.Framework.Enums;
-using BH.Framework.Infrastructure.DI.Attributes;
 using BH.Framework.Infrastructure.Events.Attributes;
 using BH.Framework.Infrastructure.Events.Interfaces;
 using BH.Framework.Infrastructure.Logging.Interfaces;
 using JetBrains.Annotations;
+using Zenject;
 
 namespace BH.Framework.Infrastructure.Events.Core
 {
@@ -62,11 +62,6 @@ namespace BH.Framework.Infrastructure.Events.Core
         /// 处理的事件类型
         /// </summary>
         public Type HandledEventType => _handledEventType;
-
-        /// <summary>
-        /// 日志标识名称
-        /// </summary>
-        private string LogName => $"EventSubscription_{_handledEventType?.Name ?? "Unknown"}";
 
         #endregion
 
@@ -184,13 +179,13 @@ namespace BH.Framework.Infrastructure.Events.Core
         {
             if (_disposed)
             {
-                _logService.Warning("尝试调用已释放的事件订阅", LogName);
+                _logService.Warning("尝试调用已释放的事件订阅");
                 return;
             }
 
             if (eventData == null)
             {
-                _logService.Error("事件数据不能为空", LogName);
+                _logService.Error("事件数据不能为空");
                 return;
             }
 
@@ -212,7 +207,7 @@ namespace BH.Framework.Infrastructure.Events.Core
                         }
                         catch (Exception ex)
                         {
-                            _logService.Error($"异步事件处理失败: {_handledEventType.Name}, 错误: {ex.Message}", LogName);
+                            _logService.Error($"异步事件处理失败: {_handledEventType.Name}, 错误: {ex.Message}");
                         }
                     });
                 }
@@ -223,7 +218,7 @@ namespace BH.Framework.Infrastructure.Events.Core
             }
             catch (Exception ex)
             {
-                _logService.Error($"事件处理失败: {_handledEventType.Name}, 错误: {ex.Message}", LogName);
+                _logService.Error($"事件处理失败: {_handledEventType.Name}, 错误: {ex.Message}");
 
                 // 一次性订阅即使处理失败也释放
                 if (IsOnce)
@@ -240,13 +235,13 @@ namespace BH.Framework.Infrastructure.Events.Core
         {
             if (_disposed)
             {
-                _logService.Warning("尝试调用已释放的事件订阅", LogName);
+                _logService.Warning("尝试调用已释放的事件订阅");
                 return;
             }
 
             if (eventData == null)
             {
-                _logService.Error("事件数据不能为空", LogName);
+                _logService.Error("事件数据不能为空");
                 return;
             }
 
@@ -269,7 +264,7 @@ namespace BH.Framework.Infrastructure.Events.Core
             }
             catch (Exception ex)
             {
-                _logService.Error($"异步事件处理失败: {_handledEventType.Name}, 错误: {ex.Message}", LogName);
+                _logService.Error($"异步事件处理失败: {_handledEventType.Name}, 错误: {ex.Message}");
 
                 // 一次性订阅即使处理失败也释放
                 if (IsOnce)
@@ -307,7 +302,7 @@ namespace BH.Framework.Infrastructure.Events.Core
                 return;
 
             _disposed = true;
-            _logService?.Debug($"事件订阅已释放: {_handledEventType.Name}", LogName);
+            _logService?.Debug($"事件订阅已释放: {_handledEventType.Name}");
         }
 
         #endregion

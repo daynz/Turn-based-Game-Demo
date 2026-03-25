@@ -1,7 +1,11 @@
+using System;
+using Zenject;
+
 namespace BH.Framework.Interfaces
 {
-    public interface IGameService
+    public interface IGameService : IInitializable, IDisposable
     {
-        void Init();
+        void Enable();
+        void Disable();
     }
 }

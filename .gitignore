@@ -119,4 +119,5 @@ InitTestScene*.unity*
 *.prefab
 
 Assets/Plugins/MFPS/
-Assets/Art
+Assets/Art/
+Assets/Addressables/

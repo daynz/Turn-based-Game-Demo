@@ -1,15 +1,15 @@
 using System;
 using System.Threading.Tasks;
 using BH.Framework.Enums;
-using BH.Framework.Infrastructure.Events.Base;
 using BH.Framework.Infrastructure.Events.Core;
+using Zenject;
 
 namespace BH.Framework.Infrastructure.Events.Interfaces
 {
     /// <summary>
     /// 事件服务接口：业务层入口，封装事件系统生命周期+全局策略，底层委托给IEventBus
     /// </summary>
-    public interface IEventService : IDisposable
+    public interface IEventService : IInitializable, IDisposable
     {
         /// <summary>
         /// 事件系统是否启用

@@ -12,11 +12,6 @@ namespace BH.Framework.Infrastructure.Events.Interfaces
     /// </summary>
     public interface IEventBus : IInitializable, IDisposable
     {
-        /// <summary>
-        /// 初始化所有默认通道
-        /// </summary>
-        void Initialize();
-
         #region 通道管理
 
         /// <summary>

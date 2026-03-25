@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using BH.Framework.Infrastructure.DI.Attributes;
 using BH.Framework.Infrastructure.Logging.Core;
+using Zenject;
 
 namespace BH.Framework.Infrastructure.Command
 {

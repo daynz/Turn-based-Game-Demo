@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using BH.Framework.Enums;
 using BH.Framework.Infrastructure.Logging.Core;
-using BH.Framework.Interfaces;
-using IInitializable = Zenject.IInitializable;
+using Zenject;
 
 namespace BH.Framework.Infrastructure.Logging.Interfaces
 {

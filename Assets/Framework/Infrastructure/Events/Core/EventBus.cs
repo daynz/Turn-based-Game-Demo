@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using BH.Framework.Enums;
 using BH.Framework.Infrastructure.Events.Interfaces;
-using BH.Framework.Infrastructure.Logging.Core;
 using BH.Framework.Infrastructure.Logging.Interfaces;
 using Zenject;
 using EventType = BH.Framework.Enums.EventType;

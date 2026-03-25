@@ -1,7 +1,6 @@
-using BH.Framework.Infrastructure.DI.Attributes;
-using BH.Framework.Infrastructure.Events.Core;
+using BH.Framework.Infrastructure.Events.Interfaces;
 using BH.Framework.Infrastructure.FSM.Interfaces;
-using BH.Framework.Infrastructure.Logging.Core;
+using BH.Framework.Infrastructure.Logging.Interfaces;
 
 namespace BH.Framework.Infrastructure.FSM.Base
 {
@@ -10,20 +9,25 @@ namespace BH.Framework.Infrastructure.FSM.Base
     /// </summary>
     public abstract class StateBase : IState
     {
-        public virtual string Name => GetType().Name;
         protected string StateName => GetType().Name;
 
-        [Inject] private readonly EventService _eventManager;
-        [Inject] private readonly LogService _logger;
+        protected readonly IEventService EventService;
+        protected readonly ILogService LogService;
 
-        public virtual void Enter(IState prevState, object param)
+        public StateBase(ILogService logService, IEventService eventService)
         {
-            _logger.Info($"进入状态: {StateName} | 上一状态: {(prevState?.GetType().Name ?? "None")}", Name);
+            LogService = logService;
+            EventService = eventService;
         }
 
-        public virtual void Exit(IState nextState)
+        public virtual void Enter()
         {
-            _logger.Info($"离开状态: {StateName} | 下一状态: {(nextState?.GetType().Name ?? "None")}", Name);
+            LogService.Info($"进入状态: {StateName}");
+        }
+
+        public virtual void Exit()
+        {
+            LogService.Info($"离开状态: {StateName}");
         }
 
         public virtual void Update()

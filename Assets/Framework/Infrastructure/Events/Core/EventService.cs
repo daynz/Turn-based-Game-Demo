@@ -1,7 +1,6 @@
 using System;
 using System.Threading.Tasks;
 using BH.Framework.Enums;
-using BH.Framework.Infrastructure.Events.Base;
 using BH.Framework.Infrastructure.Events.Interfaces;
 using BH.Framework.Infrastructure.Logging.Interfaces;
 using Zenject;
@@ -22,8 +21,7 @@ namespace BH.Framework.Infrastructure.Events.Core
 
         public void Initialize()
         {
-            EventBus.Initialize();
-            LogService.EventLog("[EventService] 事件系统初始化完成", _isEnable);
+            LogService.Info("[EventService] 事件系统初始化完成");
         }
 
         public void Enable()
@@ -31,7 +29,7 @@ namespace BH.Framework.Infrastructure.Events.Core
             if (_isEnable) return;
             //EventBus.EnableAllChannels();
             _isEnable = true;
-            LogService.EventLog("[EventService] 事件系统已启用", _isEnable);
+            LogService.Info("[EventService] 事件系统已启用");
         }
 
         public void Disable()
@@ -39,7 +37,7 @@ namespace BH.Framework.Infrastructure.Events.Core
             if (!_isEnable) return;
             //EventBus.DisableAllChannels();
             _isEnable = false;
-            LogService.EventLog("[EventService] 事件系统已禁用", _isEnable);
+            LogService.Info("[EventService] 事件系统已禁用");
         }
 
         #endregion
@@ -50,7 +48,7 @@ namespace BH.Framework.Infrastructure.Events.Core
         {
             if (!_isEnable)
             {
-                LogService.EventLog($"[EventService] 事件系统已禁用，发布失败：{typeof(T).Name}", _isEnable);
+                LogService.Info($"[EventService] 事件系统已禁用，发布失败：{typeof(T).Name}");
                 return;
             }
 
@@ -61,7 +59,7 @@ namespace BH.Framework.Infrastructure.Events.Core
         {
             if (!_isEnable)
             {
-                LogService.EventLog($"[EventService] 事件系统已禁用，发布失败：{typeof(T).Name} 到通道 {channelType}", _isEnable);
+                LogService.Info($"[EventService] 事件系统已禁用，发布失败：{typeof(T).Name} 到通道 {channelType}");
                 return;
             }
 
@@ -77,7 +75,7 @@ namespace BH.Framework.Infrastructure.Events.Core
             where T : class, IEvent<IEventData>
         {
             if (_isEnable) return EventBus.Subscribe(handler, priority, owner, isOnce);
-            LogService.EventLog($"[EventService] 事件系统已禁用，订阅失败：{typeof(T).Name}", _isEnable);
+            LogService.Info($"[EventService] 事件系统已禁用，订阅失败：{typeof(T).Name}");
             return null;
         }
 
@@ -86,7 +84,7 @@ namespace BH.Framework.Infrastructure.Events.Core
             where T : class, IEvent<IEventData>
         {
             if (_isEnable) return EventBus.SubscribeAsync(handler, priority, owner, isOnce);
-            LogService.EventLog($"[EventService] 事件系统已禁用，订阅失败：{typeof(T).Name}", _isEnable);
+            LogService.Info($"[EventService] 事件系统已禁用，订阅失败：{typeof(T).Name}");
             return null;
         }
 
@@ -96,7 +94,7 @@ namespace BH.Framework.Infrastructure.Events.Core
         {
             if (!_isEnable)
             {
-                LogService.EventLog($"[EventService] 事件系统已禁用，订阅失败：{typeof(T).Name} 到通道 {channelType}", _isEnable);
+                LogService.Info($"[EventService] 事件系统已禁用，订阅失败：{typeof(T).Name} 到通道 {channelType}");
                 return null;
             }
 
@@ -110,13 +108,13 @@ namespace BH.Framework.Infrastructure.Events.Core
         public void Unsubscribe(EventSubscription subscription, EventType? channelType = null)
         {
             EventBus.Unsubscribe(subscription, channelType);
-            LogService.EventLog($"[EventService] 取消订阅：{subscription?.GetType().Name}", _isEnable);
+            LogService.Info($"[EventService] 取消订阅：{subscription?.GetType().Name}");
         }
 
         public void UnsubscribeAll(object owner)
         {
             EventBus.UnsubscribeAll(owner);
-            LogService.EventLog($"[EventService] 取消所有者 {owner?.GetType().Name} 的所有订阅", _isEnable);
+            LogService.Info($"[EventService] 取消所有者 {owner?.GetType().Name} 的所有订阅");
         }
 
         #endregion
@@ -127,7 +125,7 @@ namespace BH.Framework.Infrastructure.Events.Core
         {
             if (!_isEnable)
             {
-                LogService.EventLog("[EventService] 事件系统已禁用，跳过事件处理", _isEnable);
+                LogService.Info("[EventService] 事件系统已禁用，跳过事件处理");
                 return;
             }
 
@@ -152,7 +150,7 @@ namespace BH.Framework.Infrastructure.Events.Core
         {
             EventBus.Dispose();
             _isEnable = false;
-            LogService.EventLog("[EventService] 事件系统已关闭");
+            LogService.Info("[EventService] 事件系统已关闭");
         }
 
         #endregion

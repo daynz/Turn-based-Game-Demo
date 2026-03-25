@@ -1,23 +1,14 @@
-using BH.Framework.Infrastructure.DI.Attributes;
-using BH.Framework.Infrastructure.Logging.Core;
-using BH.GameSystems.BattleSystem.Enums;
-using BH.GameSystems.BattleSystem.Manager;
-using BH.GameSystems.BattleSystem.Systems.TurnSystem.Base;
+using BH.Framework.Infrastructure.Events.Interfaces;
+using BH.Framework.Infrastructure.FSM.Base;
+using BH.Framework.Infrastructure.Logging.Interfaces;
 
 namespace BH.GameSystems.BattleSystem.Systems.TurnSystem.State
 {
-    public class TurnEndState : BaseTurnState
+    public class TurnEndState : StateBase
     {
-        public string Name => GetType().Name;
-        [Inject] private LogService _logService;
-
-        public override void Enter()
+        public TurnEndState(ILogService logService, IEventService eventService)
+            : base(logService, eventService)
         {
-            _logService.Info($"[TurnEnd] 回合结束处理", Name);
-
-            // TODO:事件：回合结束
-
-            //TurnManager.Instance.StateMachine.ChangeState(TurnPhase.Completed);
         }
     }
 }

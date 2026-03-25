@@ -1,3 +1,4 @@
+using System;
 using BH.Framework.Enums;
 using BH.Framework.Infrastructure.Logging.Interfaces;
 using UnityEngine;
@@ -11,7 +12,7 @@ namespace BH.Framework.Infrastructure.Logging.Output
     {
         public void Output(ILogEntry entry)
         {
-            string prefix = $"[{entry.Timestamp:HH:mm:ss.fff}][{entry.Type}]";
+            var prefix = $"[{entry.Timestamp:HH:mm:ss.fff}][{entry.Type}]";
             switch (entry.Level)
             {
                 case LogLevel.Event:
@@ -26,6 +27,8 @@ namespace BH.Framework.Infrastructure.Logging.Output
                 case LogLevel.Critical:
                     Debug.LogError($"[{entry.Owner}] {entry.Message} \n {prefix} \n {entry.StackTrace}");
                     break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
         }
     }

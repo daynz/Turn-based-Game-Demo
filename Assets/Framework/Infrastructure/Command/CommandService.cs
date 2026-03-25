@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using BH.Framework.Infrastructure.DI.Attributes;
 using BH.Framework.Infrastructure.Logging.Core;
 using UnityEngine;
 
@@ -32,7 +31,7 @@ namespace BH.Framework.Infrastructure.Command
         private bool _isExecuting;
 
         [SerializeField] private int priority;
-        [Inject] private LogService _logService;
+        private LogService _logService;
 
         #endregion
 

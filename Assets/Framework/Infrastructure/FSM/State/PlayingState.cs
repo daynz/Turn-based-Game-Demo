@@ -1,23 +1,16 @@
+using BH.Framework.Infrastructure.Events.Interfaces;
 using BH.Framework.Infrastructure.FSM.Base;
 using BH.Framework.Infrastructure.FSM.Interfaces;
+using BH.Framework.Infrastructure.Logging.Interfaces;
 using UnityEngine;
 
 namespace BH.Framework.Infrastructure.FSM.State
 {
     public class PlayingState : StateBase
     {
-        public override void Enter(IState prevState, object param)
+        public PlayingState(ILogService logService, IEventService eventService) : base(logService, eventService)
         {
-            base.Enter(prevState, param);
-            Debug.Log("游戏开始！");
-            // 开启游戏逻辑、玩家输入等
         }
-
-        public override void Exit(IState nextState)
-        {
-            base.Exit(nextState);
-            Debug.Log("游戏暂停或结束！");
-            // 关闭游戏逻辑、玩家输入等
-        }
+        
     }
 }

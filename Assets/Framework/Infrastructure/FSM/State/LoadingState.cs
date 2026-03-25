@@ -1,19 +1,20 @@
-using BH.Framework.Infrastructure.DI.Attributes;
+using BH.Framework.Infrastructure.Events.Interfaces;
 using BH.Framework.Infrastructure.FSM.Base;
-using BH.Framework.Infrastructure.FSM.Interfaces;
-using BH.Framework.Infrastructure.Logging.Core;
+using BH.Framework.Infrastructure.Logging.Interfaces;
 
 namespace BH.Framework.Infrastructure.FSM.State
 {
     public class LoadingState : StateBase
     {
-        public override string Name => GetType().Name;
-        [Inject] private LogService _logService;
-
-        public override void Enter(IState prevState, object param)
+        public LoadingState(ILogService logService, IEventService eventService) : base(logService, eventService)
         {
-            base.Enter(prevState, param);
-            _logService.Info("开始加载游戏。。。", Name);
+            
+        }
+
+        public override void Enter()
+        {
+            base.Enter();
+            LogService.Info("开始加载游戏。。。");
 
             // 加载配置文件
 

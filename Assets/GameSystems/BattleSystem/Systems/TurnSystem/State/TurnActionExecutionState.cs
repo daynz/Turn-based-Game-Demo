@@ -1,19 +1,14 @@
-using BH.Framework.Infrastructure.DI.Attributes;
-using BH.Framework.Infrastructure.Logging.Core;
-using BH.GameSystems.BattleSystem.Systems.TurnSystem.Base;
+using BH.Framework.Infrastructure.Events.Interfaces;
+using BH.Framework.Infrastructure.FSM.Base;
+using BH.Framework.Infrastructure.Logging.Interfaces;
 
 namespace BH.GameSystems.BattleSystem.Systems.TurnSystem.State
 {
-    public class TurnActionExecutionState : BaseTurnState
+    public class TurnActionExecutionState : StateBase
     {
-        public string Name => GetType().Name;
-        [Inject] private LogService _logService;
-        public override void Enter()
+        public TurnActionExecutionState(ILogService logService, IEventService eventService)
+            : base(logService, eventService)
         {
-            _logService.Info($"[TurnActionExecution] 执行行动",Name);
-            
-            // 事件发送操作包给各系统
         }
     }
-    
 }

@@ -1,4 +1,4 @@
-using BH.Framework.Infrastructure.DI.Attributes;
+
 using BH.Framework.Infrastructure.Logging.Core;
 using BH.GameSystems.BattleSystem.Interfaces;
 using UnityEngine;
@@ -14,7 +14,7 @@ namespace BH.GameSystems.BattleSystem.Systems.UnitSystem.Base
     {
         public string Name => GetType().Name;
         private readonly GameObject _prefab;
-        [Inject] private LogService _logService;
+        private LogService _logService;
 
         protected UnitFactory(GameObject prefab)
         {

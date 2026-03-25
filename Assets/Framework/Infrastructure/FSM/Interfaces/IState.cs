@@ -10,13 +10,13 @@ namespace BH.Framework.Infrastructure.FSM.Interfaces
         /// </summary>
         /// <param name="prevState">上一个状态</param>
         /// <param name="param">传入的参数</param>
-        void Enter(IState prevState, object param);
+        void Enter();
 
         /// <summary>
         /// 离开此状态时调用
         /// </summary>
         /// <param name="nextState">下一个状态</param>
-        void Exit(IState nextState);
+        void Exit();
 
         /// <summary>
         /// 状态更新时调用 (通常在MonoBehaviour的Update中)

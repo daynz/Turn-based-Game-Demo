@@ -1,20 +1,24 @@
+using BH.Framework.Infrastructure.Events.Interfaces;
 using BH.Framework.Infrastructure.FSM.Base;
 using BH.Framework.Infrastructure.FSM.Interfaces;
+using BH.Framework.Infrastructure.Logging.Interfaces;
 using UnityEngine;
 
 namespace BH.Framework.Infrastructure.FSM.State
 {
     public class MainMenuState : StateBase
     {
-        public override void Enter(IState prevState, object param)
+        public MainMenuState(ILogService logService, IEventService eventService) : base(logService, eventService)
         {
-            base.Enter(prevState, param);
+        }
+
+        public override void Enter()
+        {
             Debug.Log("显示主菜单 UI");
         }
 
-        public override void Exit(IState nextState)
+        public override void Exit()
         {
-            base.Exit(nextState);
             Debug.Log("隐藏主菜单 UI");
         }
     }
