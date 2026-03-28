@@ -10,5 +10,9 @@ namespace BH.Framework.Infrastructure.Resource.Data
         
         /// <summary>是否为常驻资源</summary>
         public bool IsPersistent { get; set; } = false;
+
+        public string Name { get; set; }
+        public object Type { get; set; }
+        public string Address { get; set; }
     }
 }

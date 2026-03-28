@@ -58,7 +58,7 @@ namespace BH.Framework.Infrastructure.Resource.Manager
         {
             if (_luaEnv == null)
             {
-                _logService.Error("xLua未初始化", Name);
+                _logService.Error("xLua未初始化");
                 return;
             }
 
@@ -75,7 +75,7 @@ namespace BH.Framework.Infrastructure.Resource.Manager
         {
             if (_luaEnv == null)
             {
-                _logService.Error("xLua未初始化", Name);
+                _logService.Error("xLua未初始化");
                 return;
             }
 
@@ -86,7 +86,7 @@ namespace BH.Framework.Infrastructure.Resource.Manager
         {
             if (_luaEnv == null)
             {
-                _logService.Error("xLua未初始化", Name);
+                _logService.Error("xLua未初始化");
                 return;
             }
 

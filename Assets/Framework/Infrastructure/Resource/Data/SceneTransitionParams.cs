@@ -23,5 +23,7 @@ namespace BH.Framework.Infrastructure.Resource.Data
         
         /// <summary>是否等待过渡完成后激活场景</summary>
         public bool WaitForTransition { get; set; } = true;
+
+        public bool IsPersistent { get; set; }
     }
 }

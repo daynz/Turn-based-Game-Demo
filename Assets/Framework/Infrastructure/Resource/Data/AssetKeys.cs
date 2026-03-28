@@ -11,11 +11,16 @@ namespace BH.Framework.Infrastructure.Resource.Data
         /// </summary>
         public static class AddressableNames
         {
-            public const string MainMenuUI = "MainMenuUI";
+            public const string GenshinSDF = "GenshinSDF";
+            public const string GenshinTTF = "GenshinTTF";
+            public const string UIActionEntity = "UIActionEntity";
+            public const string UIBuffEntity = "UIBuffEntity";
+            public const string ButtonName = "ButtonName";
+            public const string UIMainMenu = "UIMainMenu";
+            public const string UIBattlePanel = "UIBattlePanel";
             public const string CharacterDataJson = "CharacterDataJson";
             public const string MonsterDataJson = "MonsterDataJson";
-            public const string BattleScene = "BattleScene";
-            public const string GameScene = "GameScene";
+            public const string UIScene = "UIScene";
         }
 
         /// <summary>

@@ -53,7 +53,7 @@ namespace BH.Framework.Infrastructure.Command
             if (command == null) return;
 
             _pendingCommands.Enqueue(command);
-            _logService.Info($"命令已添加至队列: {command.GetType().Name}", Name);
+            _logService.Info($"命令已添加至队列: {command.GetType().Name}");
         }
 
         /// <summary>
@@ -96,7 +96,7 @@ namespace BH.Framework.Infrastructure.Command
 
             var command = _executedCommands.Pop();
             command.Undo();
-            _logService.Info($"已撤销命令: {command.GetType().Name}", Name);
+            _logService.Info($"已撤销命令: {command.GetType().Name}");
             return true;
         }
 
@@ -114,7 +114,7 @@ namespace BH.Framework.Infrastructure.Command
             var command = _undoneCommands.Pop();
             command.Execute();
             _executedCommands.Push(command); // 重做后，该命令又回到了执行栈
-            _logService.Info($"已重做命令: {command.GetType().Name}", Name);
+            _logService.Info($"已重做命令: {command.GetType().Name}");
             return true;
         }
 
@@ -127,7 +127,7 @@ namespace BH.Framework.Infrastructure.Command
             _pendingCommands.Clear();
             _executedCommands.Clear();
             _undoneCommands.Clear();
-            _logService.Info("所有命令已被清空。", Name);
+            _logService.Info("所有命令已被清空。");
         }
 
         public void Shutdown()

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using BH.Framework.Enums;
 using BH.Framework.Infrastructure.Logging.Interfaces;
 using BH.Framework.Infrastructure.Logging.Output;
@@ -16,7 +15,7 @@ namespace BH.Framework.Infrastructure.Logging.Core
     [Serializable]
     public class LogService : ILogService
     {
-        private ConcurrentQueue<LogEntry> _logQueue;
+        private ConcurrentQueue<LogEntry> _logQueue = new();
         private List<LogEntry> _logList;
         [SerializeField] private LogConfig config = new();
         [SerializeField] private LogConfig defaultConfig = new();
@@ -24,7 +23,7 @@ namespace BH.Framework.Infrastructure.Logging.Core
         [SerializeField] private int maxCapacity = 5000;
         [SerializeField] private LogLevel minDisplayLevel = LogLevel.Info;
 
-        private List<ILogOutput> _outputs;
+        private List<ILogOutput> _outputs = new();
         private static readonly object Lock = new();
 
         public int MaxCapacity
@@ -35,11 +34,10 @@ namespace BH.Framework.Infrastructure.Logging.Core
 
         public void Initialize()
         {
-            _outputs = new List<ILogOutput> { new LogConsoleOutput() };
-            _logQueue = new ConcurrentQueue<LogEntry>();
+            _outputs.Add(new LogConsoleOutput());
             _logList = new List<LogEntry>(maxCapacity);
             config = defaultConfig;
-            Info("LogService 初始化完成");
+            Info("[LogService] 初始化完成");
         }
 
         /// <summary>
@@ -87,58 +85,49 @@ namespace BH.Framework.Infrastructure.Logging.Core
         }
 
         // ----- 便捷方法（链式调用）-----
-        public void Debug(string message, string owner = "", [CallerMemberName] string callerMemberName = "",
-            LogType type = LogType.General)
+        public void Debug(string message, LogType type = LogType.General)
             => Log(new LogBuilder()
                 .SetLevel(LogLevel.Debug)
                 .SetCategory(type)
                 .SetMessage(message)
-                .SetOwner(string.IsNullOrEmpty(owner) ? callerMemberName : owner)
                 .Build()
             );
 
-        public void Info(string message, string owner = "", [CallerMemberName] string callerMemberName = "",
+        public void Info(string message,
             LogType type = LogType.General)
             => Log(new LogBuilder()
                 .SetLevel(LogLevel.Info)
                 .SetCategory(type)
                 .SetMessage(message)
-                .SetOwner(string.IsNullOrEmpty(owner) ? callerMemberName : owner)
                 .Build());
 
-        public void Warning(string message, string owner = "", [CallerMemberName] string callerMemberName = "",
+        public void Warning(string message,
             LogType type = LogType.General)
             => Log(new LogBuilder()
                 .SetLevel(LogLevel.Warning)
                 .SetCategory(type)
                 .SetMessage(message)
-                .SetOwner(string.IsNullOrEmpty(owner) ? callerMemberName : owner)
                 .Build());
 
-        public void Error(string message, string owner = "", [CallerMemberName] string callerMemberName = "",
-            LogType type = LogType.General, string stackTrace = null)
+        public void Error(string message, string stackTrace = null, LogType type = LogType.General)
             => Log(new LogBuilder()
                 .SetLevel(LogLevel.Error)
                 .SetCategory(type)
                 .SetMessage(message)
                 .SetStackTrace(stackTrace ?? Environment.StackTrace)
-                .SetOwner(string.IsNullOrEmpty(owner) ? callerMemberName : owner)
                 .Build()
             );
 
-        public void Critical(string message, string owner = "", [CallerMemberName] string callerMemberName = "",
-            LogType type = LogType.General, string stackTrace = null)
+        public void Critical(string message, string stackTrace = null, LogType type = LogType.General)
             => Log(new LogBuilder()
                 .SetLevel(LogLevel.Critical)
                 .SetCategory(type)
                 .SetMessage(message)
                 .SetStackTrace(stackTrace ?? Environment.StackTrace)
-                .SetOwner(string.IsNullOrEmpty(owner) ? callerMemberName : owner)
                 .Build()
             );
 
-        public void EventLog(string message, bool enable = true, string owner = "",
-            [CallerMemberName] string callerMemberName = "",
+        public void EventLog(string message, bool enable = true,
             LogType type = LogType.Event)
         {
             if (!enable) return;
@@ -146,13 +135,11 @@ namespace BH.Framework.Infrastructure.Logging.Core
                 .SetLevel(LogLevel.Event)
                 .SetCategory(type)
                 .SetMessage(message)
-                .SetOwner(string.IsNullOrEmpty(owner) ? callerMemberName : owner)
                 .Build()
             );
         }
 
-        public void EventLogError(string message, bool enable = true, string owner = "",
-            [CallerMemberName] string callerMemberName = "",
+        public void EventLogError(string message, bool enable = true,
             LogType type = LogType.Event,
             string stackTrace = null)
         {
@@ -161,7 +148,6 @@ namespace BH.Framework.Infrastructure.Logging.Core
                 .SetLevel(LogLevel.Error)
                 .SetCategory(type)
                 .SetMessage(message)
-                .SetOwner(string.IsNullOrEmpty(owner) ? callerMemberName : owner)
                 .SetStackTrace(stackTrace ?? Environment.StackTrace)
                 .Build()
             );

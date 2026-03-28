@@ -17,7 +17,7 @@ namespace BH.GameSystems.BattleSystem.Systems.UnitSystem.Base
         [SerializeField] private bool isInitialized;
         [SerializeField] private bool isAlive;
 
-         protected LogService LOGService = null;
+        protected LogService LOGService = null;
 
         // private Dictionary<Type, ICharacterModule> _modules;
 
@@ -70,7 +70,7 @@ namespace BH.GameSystems.BattleSystem.Systems.UnitSystem.Base
             }
             else
             {
-                LOGService.Error("初始化失败：传入数据为 null",Name);
+                LOGService.Error("初始化失败：传入数据为 null");
             }
         }
 

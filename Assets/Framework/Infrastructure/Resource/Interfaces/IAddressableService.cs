@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
 using Zenject;
@@ -12,157 +13,100 @@ using Object = UnityEngine.Object;
 namespace BH.Framework.Infrastructure.Resource.Interfaces
 {
     /// <summary>
-    /// Addressables 资源管理服务接口
-    /// 定义线程安全、支持引用计数、取消操作的 Addressables 统一操作契约
+    /// Addressables 资源管理核心服务接口
     /// </summary>
     public interface IAddressableService : IInitializable, IDisposable
     {
-        #region 核心资源加载
+        #region 资源加载 & 释放
 
         /// <summary>
-        /// 异步加载指定地址的资源
+        /// 异步加载单个资源，返回原生操作句柄（用于上层缓存与释放）
         /// </summary>
-        /// <typeparam name="T">资源类型（UnityEngine.Object 子类）</typeparam>
-        /// <param name="address">资源的 Addressables 地址</param>
-        /// <param name="cancellationToken">取消令牌（可选）</param>
-        /// <returns>加载成功返回资源实例，失败返回 null</returns>
-        Task<T> LoadAssetAsync<T>(string address, CancellationToken cancellationToken = default)
-            where T : Object;
+        /// <typeparam name="T">资源类型，需继承 UnityEngine.Object</typeparam>
+        /// <param name="addressableName">Addressable 地址</param>
+        /// <param name="cancellationToken">异步取消令牌</param>
+        /// <returns>资源操作句柄</returns>
+        Task<AsyncOperationHandle<T>> LoadAssetAsync<T>(string addressableName, CancellationToken cancellationToken = default) where T : Object;
 
         /// <summary>
-        /// 异步加载并实例化预制体
+        /// 主动释放资源句柄，递减引用计数
         /// </summary>
-        /// <param name="address">预制体的 Addressables 地址</param>
-        /// <param name="parent">实例化的父节点（可选）</param>
-        /// <param name="instantiateInWorldSpace">是否使用世界空间坐标</param>
-        /// <param name="cancellationToken">取消令牌（可选）</param>
-        /// <returns>实例化后的游戏对象，失败返回 null</returns>
-        Task<GameObject> InstantiatePrefabAsync(string address, Transform parent = null,
-            bool instantiateInWorldSpace = false, CancellationToken cancellationToken = default);
+        /// <param name="handle">资源加载句柄</param>
+        void ReleaseAsset(AsyncOperationHandle handle);
+
+        #endregion
+
+        #region 预制体实例化
+
+        /// <summary>
+        /// 异步实例化预制体，返回实例句柄
+        /// </summary>
+        /// <param name="address">预制体地址</param>
+        /// <param name="parent">父物体</param>
+        /// <param name="worldSpace">是否使用世界坐标</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>实例操作句柄</returns>
+        Task<AsyncOperationHandle<GameObject>> InstantiateAsync(string address, Transform parent = null, bool worldSpace = false, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 销毁实例并释放句柄
+        /// </summary>
+        /// <param name="handle">实例句柄</param>
+        void ReleaseInstance(AsyncOperationHandle<GameObject> handle);
 
         #endregion
 
         #region 批量标签加载
 
         /// <summary>
-        /// 按单个标签异步批量加载资源
+        /// 根据单个标签批量加载资源
         /// </summary>
-        /// <typeparam name="T">资源类型（UnityEngine.Object 子类）</typeparam>
+        /// <typeparam name="T">资源类型</typeparam>
         /// <param name="label">资源标签</param>
-        /// <param name="onAssetLoaded">单个资源加载完成回调（可选）</param>
-        /// <param name="onProgress">加载进度回调（0-1，可选）</param>
-        /// <param name="cancellationToken">取消令牌（可选）</param>
-        /// <returns>加载成功的资源列表</returns>
-        Task<List<T>> LoadAssetsByLabelAsync<T>(string label,
-            CancellationToken cancellationToken = default) where T : Object;
+        /// <param name="mergeMode">合并模式</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>批量操作句柄</returns>
+        Task<AsyncOperationHandle<IList<T>>> LoadAssetsByLabelAsync<T>(string label, Addressables.MergeMode mergeMode = Addressables.MergeMode.Union, CancellationToken cancellationToken = default) where T : Object;
 
         /// <summary>
-        /// 按多个标签异步批量加载资源
+        /// 根据多标签组合批量加载资源
         /// </summary>
-        /// <typeparam name="T">资源类型（UnityEngine.Object 子类）</typeparam>
+        /// <typeparam name="T">资源类型</typeparam>
         /// <param name="labels">标签列表</param>
-        /// <param name="mergeMode">标签合并模式（交集/并集）</param>
-        /// <param name="onAssetLoaded">单个资源加载完成回调（可选）</param>
-        /// <param name="onProgress">加载进度回调（0-1，可选）</param>
-        /// <param name="cancellationToken">取消令牌（可选）</param>
-        /// <returns>加载成功的资源列表</returns>
-        Task<List<T>> LoadAssetsByLabelsAsync<T>(List<string> labels,
-            Addressables.MergeMode mergeMode = Addressables.MergeMode.Intersection,
-            CancellationToken cancellationToken = default) where T : Object;
-
-        #endregion
-
-        #region 资源释放
-
-        /// <summary>
-        /// 释放指定地址的资源（引用计数减1，计数为0时实际释放）
-        /// </summary>
-        /// <param name="address">资源地址</param>
-        /// <param name="forceRelease">是否强制释放（忽略引用计数）</param>
-        void ReleaseAsset(string address, bool forceRelease = false);
-
-        /// <summary>
-        /// 释放所有已加载的资源
-        /// </summary>
-        /// <param name="forceRelease">是否强制释放（忽略引用计数）</param>
-        void ReleaseAllAssets(bool forceRelease = false);
-
-        /// <summary>
-        /// 获取指定资源的引用计数
-        /// </summary>
-        /// <param name="address">资源地址</param>
-        /// <returns>引用计数值，未加载返回0</returns>
-        int GetAssetRefCount(string address);
+        /// <param name="mergeMode">合并模式（交集/并集）</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>批量操作句柄</returns>
+        Task<AsyncOperationHandle<IList<T>>> LoadAssetsByLabelsAsync<T>(List<string> labels, Addressables.MergeMode mergeMode = Addressables.MergeMode.Intersection, CancellationToken cancellationToken = default) where T : Object;
 
         #endregion
 
         #region 场景管理
 
         /// <summary>
-        /// 异步加载指定地址的场景（不自动激活）
+        /// 异步加载场景（不自动激活）
         /// </summary>
-        /// <param name="sceneAddress">场景的 Addressables 地址</param>
-        /// <param name="loadMode">场景加载模式（默认叠加加载）</param>
-        /// <param name="cancellationToken">取消令牌（可选）</param>
-        /// <returns>场景实例，加载失败返回默认值</returns>
-        Task<SceneInstance> LoadSceneAsync(string sceneAddress,
-            LoadSceneMode loadMode = LoadSceneMode.Additive,
-            CancellationToken cancellationToken = default);
+        /// <param name="sceneName">场景地址</param>
+        /// <param name="loadMode">加载模式</param>
+        /// <param name="activateOnLoad">是否加载后自动激活</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>场景操作句柄</returns>
+        Task<AsyncOperationHandle<SceneInstance>> LoadSceneAsync(string sceneName, LoadSceneMode loadMode = LoadSceneMode.Additive, bool activateOnLoad = false, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// 异步加载并激活指定场景
+        /// 异步加载并激活场景
         /// </summary>
-        /// <param name="sceneAddress">场景的 Addressables 地址</param>
-        /// <param name="loadMode">场景加载模式（默认叠加加载）</param>
-        /// <param name="cancellationToken">取消令牌（可选）</param>
-        /// <returns>激活后的场景实例，失败返回默认值</returns>
-        Task<SceneInstance> LoadAndActivateSceneAsync(string sceneAddress,
-            LoadSceneMode loadMode = LoadSceneMode.Additive,
-            CancellationToken cancellationToken = default);
+        /// <param name="sceneName">场景地址</param>
+        /// <param name="loadMode">加载模式</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>场景操作句柄</returns>
+        Task<AsyncOperationHandle<SceneInstance>> LoadAndActivateSceneAsync(string sceneName, LoadSceneMode loadMode = LoadSceneMode.Additive, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// 异步卸载指定地址的场景
+        /// 异步卸载场景
         /// </summary>
-        /// <param name="sceneAddress">场景地址</param>
-        /// <param name="forceRelease">是否强制卸载（忽略引用计数）</param>
-        /// <returns>卸载成功返回true，失败返回false</returns>
-        Task<bool> UnloadSceneAsync(string sceneAddress, bool forceRelease = false);
-
-        /// <summary>
-        /// 异步释放所有已加载的场景
-        /// </summary>
-        /// <param name="forceRelease">是否强制释放（忽略引用计数）</param>
-        /// <returns>异步任务</returns>
-        Task ReleaseAllScenes(bool forceRelease = false);
-
-        /// <summary>
-        /// 检查指定场景是否已加载并有效
-        /// </summary>
-        /// <param name="sceneAddress">场景地址</param>
-        /// <returns>已加载且有效返回true，否则返回false</returns>
-        bool IsSceneLoaded(string sceneAddress);
-
-        #endregion
-
-        #region 状态查询 & 辅助方法
-
-        /// <summary>
-        /// 获取已加载资源和场景的数量
-        /// </summary>
-        /// <returns>元组(已加载资源数, 已加载场景数)</returns>
-        (int assetCount, int sceneCount) GetLoadedCount();
-
-        /// <summary>
-        /// 检查指定地址的资源是否已加载
-        /// </summary>
-        /// <param name="address">资源地址</param>
-        /// <returns>已加载返回true，否则返回false</returns>
-        bool IsAssetLoaded(string address);
-
-        /// <summary>
-        /// 清理所有无效的资源/场景句柄
-        /// </summary>
-        void CleanInvalidHandles();
+        /// <param name="sceneHandle">场景操作句柄</param>
+        /// <returns>是否卸载成功</returns>
+        Task<bool> UnloadSceneAsync(AsyncOperationHandle<SceneInstance> sceneHandle);
 
         #endregion
     }

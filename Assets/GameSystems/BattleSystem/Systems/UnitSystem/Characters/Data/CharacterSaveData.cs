@@ -107,7 +107,7 @@ namespace BH.GameSystems.BattleSystem.Systems.UnitSystem.Characters.Data
                 if (value == Rarity.Rarity4 || value == Rarity.Rarity5)
                     rarity = value;
                 else
-                    LOGService.Warning($"角色稀有度只能是 {Rarity.Rarity4} 或 {Rarity.Rarity5}，当前值：{value}", Name);
+                    LOGService.Warning($"角色稀有度只能是 {Rarity.Rarity4} 或 {Rarity.Rarity5}，当前值：{value}");
             }
         }
 

@@ -66,7 +66,7 @@ namespace BH.GameSystems.BattleSystem.Systems.UnitSystem.Characters.Data
                 //         var items = JsonConvert.DeserializeObject<List<CharacterData>>(json);
                 //         if (items == null)
                 //         {
-                //             LOGService.Warning($"无法解析JSON文件", Name);
+                //             LOGService.Warning($"无法解析JSON文件");
                 //             return;
                 //         }
                 //
@@ -88,11 +88,11 @@ namespace BH.GameSystems.BattleSystem.Systems.UnitSystem.Characters.Data
             }
             catch (JsonException ex)
             {
-                LOGService.Error($"[CharacterDatabase] JSON格式错误：{ex.Message}", Name);
+                LOGService.Error($"[CharacterDatabase] JSON格式错误：{ex.Message}");
             }
             catch (Exception ex)
             {
-                LOGService.Error($"[CharacterDatabase] 加载数据时发生未知错误：{ex.Message}", Name);
+                LOGService.Error($"[CharacterDatabase] 加载数据时发生未知错误：{ex.Message}");
             }
         }
     }

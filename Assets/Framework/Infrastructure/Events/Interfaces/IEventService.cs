@@ -19,11 +19,6 @@ namespace BH.Framework.Infrastructure.Events.Interfaces
         #region 生命周期管理
 
         /// <summary>
-        /// 初始化事件系统（含EventBus初始化）
-        /// </summary>
-        void Initialize();
-
-        /// <summary>
         /// 启用事件系统（所有通道启用）
         /// </summary>
         void Enable();

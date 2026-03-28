@@ -1,5 +1,5 @@
 using BH.Framework.Infrastructure.Events.Installers;
-using BH.Framework.Infrastructure.Logging.Core;
+using BH.Framework.Infrastructure.Logging.Installers;
 using BH.Framework.Infrastructure.Resource.Manager;
 using BH.Framework.Infrastructure.Resource.Services;
 using BH.Framework.Managers;
@@ -14,9 +14,7 @@ namespace BH.Installers
         public override void InstallBindings()
         {
             // ========== 日志服务服务绑定 ==========
-            Container.BindInterfacesAndSelfTo<LogService>()
-                .AsSingle()
-                .NonLazy();
+            Container.Install<LoggingInstaller>();
 
             Debug.Log("依赖注入 LogService");
 
@@ -61,7 +59,7 @@ namespace BH.Installers
 
             Debug.Log("依赖注入 GameService");
 
-            Container.Bind<GameManager>()
+            Container.BindInterfacesAndSelfTo<GameManager>()
                 .FromComponentInHierarchy()
                 .AsSingle();
 

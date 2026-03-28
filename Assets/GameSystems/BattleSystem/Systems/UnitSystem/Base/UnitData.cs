@@ -50,7 +50,7 @@ namespace BH.GameSystems.BattleSystem.Systems.UnitSystem.Base
                 if (!string.IsNullOrWhiteSpace(value))
                     unitName = value;
                 else
-                    LOGService.Warning("单位名称不能为空或仅包含空格！", ClassName);
+                    LOGService.Warning("单位名称不能为空或仅包含空格！");
             }
         }
 
@@ -65,7 +65,7 @@ namespace BH.GameSystems.BattleSystem.Systems.UnitSystem.Base
                 if (value >= 1)
                     level = value;
                 else
-                    LOGService.Warning($"等级必须大于0，当前值：{value}", ClassName);
+                    LOGService.Warning($"等级必须大于0，当前值：{value}");
             }
         }
 

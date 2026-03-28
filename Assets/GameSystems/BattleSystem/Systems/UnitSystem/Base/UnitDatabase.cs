@@ -31,14 +31,14 @@ namespace BH.GameSystems.BattleSystem.Systems.UnitSystem.Base
             {
                 if (unit.UnitId == null)
                 {
-                    LOGService.Warning($"UnitDatabase<{typeof(TData).Name}> 包含无效单位（UnitId 为空）", Name);
+                    LOGService.Warning($"UnitDatabase<{typeof(TData).Name}> 包含无效单位（UnitId 为空）");
                     continue;
                 }
 
                 var id = unit.UnitId;
                 if (!Cache.TryAdd(id, unit))
                 {
-                    LOGService.Error($"UnitDatabase<{typeof(TData).Name}> 存在重复 UnitId: {id}", Name);
+                    LOGService.Error($"UnitDatabase<{typeof(TData).Name}> 存在重复 UnitId: {id}");
                 }
             }
         }
@@ -70,13 +70,13 @@ namespace BH.GameSystems.BattleSystem.Systems.UnitSystem.Base
         {
             if (unit == null || string.IsNullOrEmpty(unit.SaveData?.UnitId))
             {
-                LOGService.Error("无法添加无效单位到数据库", Name);
+                LOGService.Error("无法添加无效单位到数据库");
                 return;
             }
 
             if (units.Any(u => u.SaveData.UnitId == unit.SaveData.UnitId))
             {
-                LOGService.Warning($"单位 {unit.SaveData.UnitId} 已存在，跳过添加", Name);
+                LOGService.Warning($"单位 {unit.SaveData.UnitId} 已存在，跳过添加");
                 return;
             }
 

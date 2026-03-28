@@ -18,7 +18,7 @@ namespace BH.GameSystems.BattleSystem.Systems.TurnSystem.State
 
         public override void Enter()
         {
-            _logService.Info("[TurnPreparation] 等待行动选择", Name);
+            _logService.Info("[TurnPreparation] 等待行动选择");
 
             // 触发UI显示行动选项
             //EventManager.Instance.Publish();

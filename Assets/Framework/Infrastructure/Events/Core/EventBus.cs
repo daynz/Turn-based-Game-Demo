@@ -23,14 +23,13 @@ namespace BH.Framework.Infrastructure.Events.Core
         public void Initialize()
         {
             if (IsInitialized) return;
-            // 初始化所有枚举类型的通道
             foreach (EventType type in Enum.GetValues(typeof(EventType)))
             {
                 CreateChannel(type);
             }
 
             IsInitialized = true;
-            LogService.EventLog("[EventBus] 初始化完成");
+            LogService.Info("[EventBus] 初始化完成");
         }
 
         #region 通道管理
@@ -40,13 +39,13 @@ namespace BH.Framework.Infrastructure.Events.Core
         {
             if (_channels.TryGetValue(channelType, out var ch))
             {
-                LogService.EventLog($"[EventBus] 通道已存在: {channelType}");
+                LogService.Info($"[EventBus] 通道已存在: {channelType}");
                 return ch;
             }
             
             var channel = _channelFactory.Create(channelType);
             _channels[channelType] = channel;
-            LogService.EventLog($"[EventBus] 创建通道: {channelType}");
+            LogService.Info($"[EventBus] 创建通道: {channelType}");
             return channel;
         }
 
@@ -74,13 +73,13 @@ namespace BH.Framework.Infrastructure.Events.Core
             var channel = GetChannel(channelType);
             if (channel == null)
             {
-                LogService.EventLog($"[EventBus] 发布失败：通道不存在 {channelType}");
+                LogService.Warning($"[EventBus] 发布失败：通道不存在 {channelType}");
                 return;
             }
 
             if (!channel.IsEnabled)
             {
-                LogService.EventLog($"[EventBus] 发布失败：通道已禁用 {channelType}");
+                LogService.Warning($"[EventBus] 发布失败：通道已禁用 {channelType}");
                 return;
             }
 
@@ -193,7 +192,7 @@ namespace BH.Framework.Infrastructure.Events.Core
                 channel.Dispose();
             _channels.Clear();
             IsInitialized = false;
-            LogService.EventLog("[EventBus] 已释放所有资源");
+            LogService.Info("[EventBus] 已释放所有资源");
         }
 
         #endregion

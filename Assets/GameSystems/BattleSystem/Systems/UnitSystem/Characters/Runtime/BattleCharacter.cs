@@ -23,7 +23,7 @@ namespace BH.GameSystems.BattleSystem.Systems.UnitSystem.Characters.Runtime
             else
             {
                 LOGService.Error(
-                    $"BattleCharacter 初始化失败：传入的数据类型不是 CharacterData，实际类型为 {configData?.GetType()}",Name);
+                    $"BattleCharacter 初始化失败：传入的数据类型不是 CharacterData，实际类型为 {configData?.GetType()}");
             }
         }
 

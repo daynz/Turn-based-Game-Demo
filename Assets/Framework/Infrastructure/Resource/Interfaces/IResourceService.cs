@@ -4,21 +4,17 @@ using System.Threading;
 using System.Threading.Tasks;
 using BH.Framework.Infrastructure.Resource.Data;
 using UnityEngine;
-using UnityEngine.ResourceManagement.ResourceProviders;
-using UnityEngine.SceneManagement;
 using Zenject;
 using Object = UnityEngine.Object;
 
 namespace BH.Framework.Infrastructure.Resource.Interfaces
 {
     /// <summary>
-    /// 游戏资源管理服务接口
-    /// 定义资源缓存、配置加载、场景管理、预加载、类型安全的资源操作核心契约
+    /// 资源管理高层服务接口
+    /// 提供资源加载/卸载、配置加载、预制体实例化、资源预加载、LRU 缓存管理等统一入口
     /// </summary>
     public interface IResourceService : IInitializable, IDisposable
     {
-        #region 生命周期管理
-
         /// <summary>
         /// 启用资源服务
         /// </summary>
@@ -29,26 +25,24 @@ namespace BH.Framework.Infrastructure.Resource.Interfaces
         /// </summary>
         void Disable();
 
-        #endregion
-
         #region 预加载管理
 
         /// <summary>
-        /// 预加载所有注册的资源组和核心配置
+        /// 预加载所有注册的资源组
         /// </summary>
         Task PreloadAllResourcesAsync();
 
         /// <summary>
-        /// 添加预加载组（资源名称为 AssetKeys.AddressableNames 常量）
+        /// 添加预加载资源组
         /// </summary>
-        /// <param name="groupName">预加载组名称</param>
-        /// <param name="resourceNames">AssetKeys.AddressableNames 常量列表</param>
+        /// <param name="groupName">组名</param>
+        /// <param name="resourceNames">资源地址列表</param>
         void AddPreloadGroup(string groupName, List<string> resourceNames);
 
         /// <summary>
-        /// 异步加载指定预加载组
+        /// 异步预加载指定资源组
         /// </summary>
-        /// <param name="groupName">预加载组名称</param>
+        /// <param name="groupName">组名</param>
         /// <param name="cancellationToken">取消令牌</param>
         Task PreloadGroupAsync(string groupName, CancellationToken cancellationToken = default);
 
@@ -62,28 +56,26 @@ namespace BH.Framework.Infrastructure.Resource.Interfaces
         #region 常驻资源管理
 
         /// <summary>
-        /// 异步加载常驻资源（适配 AssetKeys.AddressableNames 常量）
+        /// 异步加载常驻资源（带 LRU 缓存）
         /// </summary>
         /// <typeparam name="T">资源类型</typeparam>
-        /// <param name="resourceName">AssetKeys.AddressableNames 常量</param>
+        /// <param name="resourceName">资源地址</param>
         /// <param name="cancellationToken">取消令牌</param>
         /// <returns>资源加载结果</returns>
         Task<ResourceLoadResult<T>> LoadPersistentAssetAsync<T>(string resourceName,
-            CancellationToken cancellationToken = default)
-            where T : Object;
+            CancellationToken cancellationToken = default) where T : Object;
 
         /// <summary>
         /// 卸载常驻资源
         /// </summary>
-        /// <param name="resourceName">AssetKeys.AddressableNames 常量</param>
-        /// <param name="forceRelease">强制释放（忽略引用计数）</param>
+        /// <param name="resourceName">资源地址</param>
+        /// <param name="forceRelease">是否强制释放</param>
         void UnloadPersistentAsset(string resourceName, bool forceRelease = false);
 
         /// <summary>
-        /// 检查资源是否在常驻缓存中
+        /// 检查资源是否已缓存
         /// </summary>
-        /// <param name="resourceName">AssetKeys.AddressableNames 常量</param>
-        /// <returns>是否存在于缓存</returns>
+        /// <param name="resourceName">资源地址</param>
         bool IsPersistentAssetCached(string resourceName);
 
         #endregion
@@ -91,10 +83,10 @@ namespace BH.Framework.Infrastructure.Resource.Interfaces
         #region 配置加载
 
         /// <summary>
-        /// 异步加载 JSON 配置（适配 AssetKeys.AddressableNames 配置常量）
+        /// 异步加载 JSON 配置
         /// </summary>
         /// <typeparam name="T">配置类型</typeparam>
-        /// <param name="configName">AssetKeys.AddressableNames 配置常量</param>
+        /// <param name="configName">配置地址</param>
         /// <param name="useCache">是否使用缓存</param>
         /// <returns>配置加载结果</returns>
         Task<ResourceLoadResult<T>> LoadJsonConfigAsync<T>(string configName, bool useCache = true);
@@ -102,76 +94,30 @@ namespace BH.Framework.Infrastructure.Resource.Interfaces
         /// <summary>
         /// 清理配置缓存
         /// </summary>
-        /// <param name="configName">配置名称（null 清理全部）</param>
+        /// <param name="configName">配置名（为空则清理全部）</param>
         void ClearConfigCache(string configName = null);
-
-        #endregion
-
-        #region 场景管理
-
-        /// <summary>
-        /// 异步加载场景（适配 AssetKeys.AddressableNames 场景常量）
-        /// </summary>
-        /// <param name="sceneLogicalName">场景逻辑名称</param>
-        /// <param name="sceneAddress">AssetKeys.AddressableNames 场景常量</param>
-        /// <param name="loadMode">加载模式</param>
-        /// <returns>场景加载结果</returns>
-        Task<ResourceLoadResult<SceneInstance>> LoadSceneAsync(string sceneLogicalName, string sceneAddress,
-            LoadSceneMode loadMode = LoadSceneMode.Additive);
-
-        /// <summary>
-        /// 异步加载并激活场景
-        /// </summary>
-        /// <param name="sceneLogicalName">场景逻辑名称</param>
-        /// <param name="sceneAddress">AssetKeys.AddressableNames 场景常量</param>
-        /// <param name="loadMode">加载模式</param>
-        /// <returns>场景加载结果</returns>
-        Task<ResourceLoadResult<SceneInstance>> LoadAndActivateSceneAsync(string sceneLogicalName,
-            string sceneAddress, LoadSceneMode loadMode = LoadSceneMode.Additive);
-
-        /// <summary>
-        /// 异步卸载场景
-        /// </summary>
-        /// <param name="sceneLogicalName">场景逻辑名称</param>
-        /// <param name="forceRelease">强制释放</param>
-        /// <returns>是否卸载成功</returns>
-        Task<bool> UnloadSceneAsync(string sceneLogicalName, bool forceRelease = false);
-
-        /// <summary>
-        /// 检查场景是否已加载
-        /// </summary>
-        /// <param name="sceneLogicalName">场景逻辑名称</param>
-        /// <returns>是否已加载</returns>
-        bool IsSceneLoaded(string sceneLogicalName);
 
         #endregion
 
         #region 预制体实例化
 
         /// <summary>
-        /// 异步实例化预制体（适配 AssetKeys.AddressableNames 预制体常量）
+        /// 异步实例化预制体
         /// </summary>
-        /// <param name="prefabName">AssetKeys.AddressableNames 预制体常量</param>
-        /// <param name="parent">父节点</param>
-        /// <param name="instantiateInWorldSpace">是否使用世界空间坐标</param>
-        /// <returns>预制体实例化结果</returns>
-        Task<ResourceLoadResult<GameObject>> InstantiatePrefabAsync(string prefabName,
-            Transform parent = null, bool instantiateInWorldSpace = false);
+        /// <param name="prefabName">预制体地址</param>
+        /// <param name="parent">父物体</param>
+        /// <param name="worldSpace">是否使用世界坐标</param>
+        /// <returns>实例化结果</returns>
+        Task<ResourceLoadResult<GameObject>> InstantiatePrefabAsync(string prefabName, Transform parent = null,
+            bool worldSpace = false);
 
         #endregion
 
         #region 辅助方法
 
         /// <summary>
-        /// 获取已加载场景列表
+        /// 获取常驻缓存数量
         /// </summary>
-        /// <returns>场景逻辑名称列表</returns>
-        List<string> GetLoadedScenes();
-
-        /// <summary>
-        /// 获取常驻缓存资源数量
-        /// </summary>
-        /// <returns>缓存资源数量</returns>
         int GetPersistentCacheCount();
 
         #endregion

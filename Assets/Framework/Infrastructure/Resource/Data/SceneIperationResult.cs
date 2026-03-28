@@ -1,5 +1,6 @@
 using System;
 using BH.Framework.Infrastructure.Resource.Enums;
+using UnityEngine.ResourceManagement.ResourceProviders;
 
 namespace BH.Framework.Infrastructure.Resource.Data
 {
@@ -26,5 +27,20 @@ namespace BH.Framework.Infrastructure.Resource.Data
         
         /// <summary>操作状态</summary>
         public SceneLoadStatus Status { get; set; }
+
+        public static SceneOperationResult<T> Failure(string errorMsg, Exception resultException = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public static SceneOperationResult<T> Success(T resultAsset)
+        {
+            throw new NotImplementedException();
+        }
+
+        public static SceneOperationResult<T> Cancelled()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

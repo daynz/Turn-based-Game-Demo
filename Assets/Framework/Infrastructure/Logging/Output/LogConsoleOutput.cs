@@ -16,16 +16,18 @@ namespace BH.Framework.Infrastructure.Logging.Output
             switch (entry.Level)
             {
                 case LogLevel.Event:
-                    Debug.Log($"[{entry.Owner}] {entry.Message} \n {prefix} {entry.TimestampUnixMs}");
+                    Debug.Log($"<color=#FAC7FA>{entry.Message}</color> \n {prefix} {entry.TimestampUnixMs}");
                     break;
                 case LogLevel.Debug:
                 case LogLevel.Info:
-                    Debug.Log($"[{entry.Owner}] {entry.Message} \n {prefix}");
+                    Debug.Log($"<color=green>{entry.Message}</color> \n {prefix}");
                     break;
                 case LogLevel.Warning:
+                    Debug.LogWarning($"<color=yellow>{entry.Message}</color> \n {prefix} \n {entry.StackTrace}");
+                    break;
                 case LogLevel.Error:
                 case LogLevel.Critical:
-                    Debug.LogError($"[{entry.Owner}] {entry.Message} \n {prefix} \n {entry.StackTrace}");
+                    Debug.LogError($"<color=red>{entry.Message}</color> \n {prefix} \n {entry.StackTrace}");
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();

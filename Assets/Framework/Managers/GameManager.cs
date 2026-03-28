@@ -19,12 +19,12 @@ namespace BH.Framework.Managers
 
         private void OnEnable()
         {
-            _gameService.Enable();
+            
         }
 
         private void OnDisable()
         {
-            _gameService.Disable();
+            
         }
 
         private void OnDestroy()

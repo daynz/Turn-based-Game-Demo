@@ -15,7 +15,7 @@ namespace BH.GameSystems.BattleSystem.Service
 
         public Dictionary<string, IConfig> ConfigsCache => _configsCache;
 
-        public async void Init()
+        public void Init()
         {
             try
             {

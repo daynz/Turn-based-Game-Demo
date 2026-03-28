@@ -28,7 +28,7 @@ namespace BH.GameSystems.BattleSystem.Systems.UnitSystem.Base
         {
             if (data == null)
             {
-                _logService.Error("[UnitFactory] 传入的单位数据为 null", Name);
+                _logService.Error("[UnitFactory] 传入的单位数据为 null");
                 return null;
             }
 
@@ -44,7 +44,7 @@ namespace BH.GameSystems.BattleSystem.Systems.UnitSystem.Base
             if (instance)
                 return instance;
 
-            _logService.Error($"预制体 {_prefab.name} 未挂载 {typeof(TBattleUnit).Name} 组件", Name);
+            _logService.Error($"预制体 {_prefab.name} 未挂载 {typeof(TBattleUnit).Name} 组件");
             Object.Destroy(instance.gameObject);
             return null;
         }

@@ -27,7 +27,6 @@ namespace BH.Framework.Infrastructure.Events.Core
         public void Enable()
         {
             if (_isEnable) return;
-            //EventBus.EnableAllChannels();
             _isEnable = true;
             LogService.Info("[EventService] 事件系统已启用");
         }
@@ -35,7 +34,6 @@ namespace BH.Framework.Infrastructure.Events.Core
         public void Disable()
         {
             if (!_isEnable) return;
-            //EventBus.DisableAllChannels();
             _isEnable = false;
             LogService.Info("[EventService] 事件系统已禁用");
         }
@@ -75,7 +73,7 @@ namespace BH.Framework.Infrastructure.Events.Core
             where T : class, IEvent<IEventData>
         {
             if (_isEnable) return EventBus.Subscribe(handler, priority, owner, isOnce);
-            LogService.Info($"[EventService] 事件系统已禁用，订阅失败：{typeof(T).Name}");
+            LogService.Warning($"[EventService] 事件系统已禁用，订阅失败：{typeof(T).Name}");
             return null;
         }
 
@@ -84,7 +82,7 @@ namespace BH.Framework.Infrastructure.Events.Core
             where T : class, IEvent<IEventData>
         {
             if (_isEnable) return EventBus.SubscribeAsync(handler, priority, owner, isOnce);
-            LogService.Info($"[EventService] 事件系统已禁用，订阅失败：{typeof(T).Name}");
+            LogService.Warning($"[EventService] 事件系统已禁用，订阅失败：{typeof(T).Name}");
             return null;
         }
 
@@ -92,13 +90,10 @@ namespace BH.Framework.Infrastructure.Events.Core
             EventPriority priority = EventPriority.Normal, object owner = null, bool isOnce = false)
             where T : class, IEvent<IEventData>
         {
-            if (!_isEnable)
-            {
-                LogService.Info($"[EventService] 事件系统已禁用，订阅失败：{typeof(T).Name} 到通道 {channelType}");
-                return null;
-            }
+            if (_isEnable) return EventBus.Subscribe(channelType, handler, priority, owner, isOnce);
+            LogService.Warning($"[EventService] 事件系统已禁用，订阅失败：{typeof(T).Name} 到通道 {channelType}");
+            return null;
 
-            return EventBus.Subscribe(channelType, handler, priority, owner, isOnce);
         }
 
         #endregion
@@ -125,7 +120,7 @@ namespace BH.Framework.Infrastructure.Events.Core
         {
             if (!_isEnable)
             {
-                LogService.Info("[EventService] 事件系统已禁用，跳过事件处理");
+                LogService.Warning("[EventService] 事件系统已禁用，跳过事件处理");
                 return;
             }
 

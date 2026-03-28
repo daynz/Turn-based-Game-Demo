@@ -38,11 +38,11 @@ namespace BH.Framework.Infrastructure.Command
 
             if (CommandCreators.ContainsKey(commandId))
             {
-                _logService.Warning($"命令ID {commandId} 已存在，将被覆盖。", "CommandFactory");
+                _logService.Warning($"命令ID {commandId} 已存在，将被覆盖。");
             }
 
             CommandCreators[commandId] = () => new T();
-            _logService.Info($"成功注册命令: {commandType.Name}, ID: {commandId}", "CommandFactory");
+            _logService.Info($"成功注册命令: {commandType.Name}, ID: {commandId}");
         }
 
         /// <summary>

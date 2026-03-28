@@ -22,7 +22,7 @@ namespace BH.GameSystems.BattleSystem.Systems.UnitSystem.Characters.Data
                 if (value is >= MinLevel and <= MaxLevel)
                     level = value;
                 else
-                    LOGService.Warning($"等级必须在 {MinLevel}-{MaxLevel} 之间，当前值：{value}", Name);
+                    LOGService.Warning($"等级必须在 {MinLevel}-{MaxLevel} 之间，当前值：{value}");
             }
         }
 

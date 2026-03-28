@@ -15,8 +15,32 @@ MonoBehaviour:
   m_GroupName: uiPrefab
   m_GUID: 0f0b0c29965cac94699bc9c46dcaaa47
   m_SerializeEntries:
+  - m_GUID: 624a129c93b07fd40b55c849d2f156e4
+    m_Address: UIActionEntity
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Type_Prefab
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 815c8530bd811f84e9678e48d3cbd579
+    m_Address: UIBuffEntity
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Type_Prefab
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b03745516f66c4d46b13e1a4e3bdacf1
+    m_Address: ButtonName
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Type_Prefab
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ef7dfdef9cd32df4aa536417e6d37877
-    m_Address: MainMenuUI
+    m_Address: UIMainMenu
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Type_Prefab
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f9d36c9d36501384b813eec5d591edb4
+    m_Address: UIBattlePanel
     m_ReadOnly: 0
     m_SerializedLabels:
     - Type_Prefab

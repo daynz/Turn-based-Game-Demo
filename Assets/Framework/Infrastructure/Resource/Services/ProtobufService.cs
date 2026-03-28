@@ -35,7 +35,7 @@ namespace BH.Framework.Infrastructure.Resource.Services
         {
             if (data == null || data.Length == 0)
             {
-                LogService.Error("输入的字节数组为空或长度为0，无法反序列化。", Name);
+                LogService.Error("输入的字节数组为空或长度为0，无法反序列化。");
                 return default;
             }
 
@@ -47,17 +47,17 @@ namespace BH.Framework.Infrastructure.Resource.Services
                     message.MergeFrom(stream.ToArray());
                 }
 
-                LogService.Info($"成功从字节数组反序列化 Protobuf 消息: {typeof(T).Name}", Name);
+                LogService.Info($"成功从字节数组反序列化 Protobuf 消息: {typeof(T).Name}");
                 return message;
             }
             catch (InvalidProtocolBufferException ex)
             {
-                LogService.Error($"反序列化 Protobuf 消息时发生错误: {typeof(T).Name}\n{ex.Message}\n{ex.StackTrace}", Name);
+                LogService.Error($"反序列化 Protobuf 消息时发生错误: {typeof(T).Name}\n{ex.Message}\n{ex.StackTrace}");
                 return default;
             }
             catch (Exception ex)
             {
-                LogService.Error($"反序列化 Protobuf 消息时发生未知错误: {typeof(T).Name}\n{ex.Message}\n{ex.StackTrace}", Name);
+                LogService.Error($"反序列化 Protobuf 消息时发生未知错误: {typeof(T).Name}\n{ex.Message}\n{ex.StackTrace}");
                 return default;
             }
         }
@@ -72,7 +72,7 @@ namespace BH.Framework.Infrastructure.Resource.Services
         {
             if (message == null)
             {
-                LogService.Error("输入的消息对象为 null，无法序列化。", Name);
+                LogService.Error("输入的消息对象为 null，无法序列化。");
                 return null;
             }
 
@@ -83,12 +83,12 @@ namespace BH.Framework.Infrastructure.Resource.Services
                 message.WriteTo(codedOutput);
                 codedOutput.Flush(); // 确保所有数据都写入底层流
                 var data = output.ToArray();
-                LogService.Info($"成功将 Protobuf 消息序列化为字节数组: {typeof(T).Name}", Name);
+                LogService.Info($"成功将 Protobuf 消息序列化为字节数组: {typeof(T).Name}");
                 return data;
             }
             catch (Exception ex)
             {
-                LogService.Error($"序列化 Protobuf 消息时发生错误: {typeof(T).Name}\n{ex.Message}\n{ex.StackTrace}", Name);
+                LogService.Error($"序列化 Protobuf 消息时发生错误: {typeof(T).Name}\n{ex.Message}\n{ex.StackTrace}");
                 return null;
             }
         }
